@@ -1,7 +1,7 @@
 Options -Indexes
 
 RewriteEngine On
-RewriteBase /
+RewriteBase /debt-apps/
 
 # Protect config files
 <FilesMatch "^\.">
@@ -12,10 +12,6 @@ RewriteBase /
 # Protect sensitive directories
 RewriteRule ^config/.* - [F,L]
 RewriteRule ^includes/.* - [F,L]
-
-# Redirect to HTTPS (uncomment when SSL is configured)
-# RewriteCond %{HTTPS} off
-# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Error Documents
 ErrorDocument 404 /404.php

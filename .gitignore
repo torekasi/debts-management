@@ -1,8 +1,32 @@
-# IDE and Editor files
-.vscode/
+# Configuration files
+/config/config.php
+
+# IDE files
 .idea/
+.vscode/
 *.swp
 *.swo
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Logs
+/logs/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Uploaded files
+/uploads/
+/public/uploads/
+
+# Cache files
+*.cache
+.phpunit.result.cache
 
 # OS generated files
 .DS_Store
@@ -12,22 +36,3 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Configuration files with sensitive data
-config/config.php
-
-# Dependency directories
-vendor/
-node_modules/
-
-# Log files
-*.log
-logs/
-
-# Cache files
-*.cache
-
-# Environment files
-.env
-.env.local
-.env.*.local

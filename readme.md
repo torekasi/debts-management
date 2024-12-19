@@ -10,6 +10,7 @@ This project aims to develop a web-based application using **PHP** as the backen
 - **Frontend**: HTML, Tailwind CSS (Mobile Layout Design Template)  
 - **Image Upload**: PHP File Handling  
 - **QR Code**: QR Generation Library (e.g., [PHP QR Code](https://sourceforge.net/projects/phpqrcode/))  
+- **config.php*** - store all database credentials in config.php
 
 ---
 

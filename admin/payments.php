@@ -134,29 +134,24 @@ ob_start();
     </div>
 
     <!-- Search Form -->
-    <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark mb-6">
-        <div class="border-b border-stroke px-6.5 py-4 dark:border-strokedark">
-            <h3 class="font-medium text-black dark:text-white">Search User</h3>
-        </div>
-        <div class="p-6.5">
-            <form action="" method="GET" class="flex gap-4">
-                <div class="w-full">
-                    <label class="mb-2.5 block text-black dark:text-white">Member ID</label>
-                    <div class="relative">
-                        <input type="text" name="member_id" id="member_id" 
-                               value="<?php echo htmlspecialchars($member_id); ?>"
-                               class="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:focus:border-primary" 
-                               placeholder="Enter Member ID">
-                    </div>
-                </div>
-                <div class="flex items-end">
-                    <button type="submit" 
-                            class="inline-flex items-center justify-center rounded-md bg-primary px-10 py-3 text-center font-medium text-white hover:bg-opacity-90">
-                        Search
-                    </button>
-                </div>
-            </form>
-        </div>
+    <div class="mb-6">
+        <form action="" method="GET" class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+                <label for="member_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Member ID</label>
+                <input type="text" 
+                       name="member_id" 
+                       id="member_id" 
+                       value="<?php echo htmlspecialchars($member_id); ?>" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm"
+                       placeholder="Enter Member ID">
+            </div>
+            <div class="flex items-end">
+                <button type="submit" 
+                        class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Search
+                </button>
+            </div>
+        </form>
     </div>
 
     <?php if (!empty($errors)): ?>
@@ -185,97 +180,94 @@ ob_start();
 
     <?php if ($user_data): ?>
         <!-- User Summary -->
-        <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark mb-6">
-            <div class="border-b border-stroke px-6.5 py-4 dark:border-strokedark">
+        <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-gray-700 dark:bg-gray-800 mb-6">
+            <div class="border-b border-stroke px-6.5 py-4 dark:border-gray-700">
                 <h3 class="font-medium text-black dark:text-white">User Information</h3>
             </div>
             <div class="p-6.5">
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
-                    <div class="flex flex-col gap-2">
-                        <span class="text-sm font-medium text-black dark:text-white">Member ID</span>
-                        <span class="text-sm text-body"><?php echo htmlspecialchars($user_data['member_id']); ?></span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Member ID</p>
+                        <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white"><?php echo htmlspecialchars($user_data['member_id']); ?></p>
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <span class="text-sm font-medium text-black dark:text-white">Full Name</span>
-                        <span class="text-sm text-body"><?php echo htmlspecialchars($user_data['full_name']); ?></span>
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Full Name</p>
+                        <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white"><?php echo htmlspecialchars($user_data['full_name']); ?></p>
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <span class="text-sm font-medium text-black dark:text-white">Total Debt</span>
-                        <span class="text-sm text-meta-1">RM<?php echo number_format($total_debt, 2); ?></span>
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Total Debt</p>
+                        <p class="mt-1 text-lg font-semibold text-red-600 dark:text-red-400">RM<?php echo number_format($total_debt, 2); ?></p>
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <span class="text-sm font-medium text-black dark:text-white">Total Paid</span>
-                        <span class="text-sm text-meta-3">RM<?php echo number_format($total_paid, 2); ?></span>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <span class="text-sm font-medium text-black dark:text-white">Outstanding Balance</span>
-                        <span class="text-sm font-bold text-meta-5">RM<?php echo number_format($total_debt - $total_paid, 2); ?></span>
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Total Paid</p>
+                        <p class="mt-1 text-lg font-semibold text-green-600 dark:text-green-400">RM<?php echo number_format($total_paid, 2); ?></p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Payment Form -->
-        <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark mb-6">
-            <div class="border-b border-stroke px-6.5 py-4 dark:border-strokedark">
+        <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-gray-700 dark:bg-gray-800 mb-6">
+            <div class="border-b border-stroke px-6.5 py-4 dark:border-gray-700">
                 <h3 class="font-medium text-black dark:text-white">Process New Payment</h3>
             </div>
             <div class="p-6.5">
                 <form action="" method="POST" class="space-y-6">
-                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="mb-2.5 block text-black dark:text-white">Payment Amount</label>
-                            <div class="relative">
-                                <span class="absolute left-4 top-4 text-body">RM</span>
-                                <input type="number" step="0.01" min="0" 
-                                       name="amount" id="amount" 
-                                       class="w-full rounded border-[1.5px] border-stroke bg-transparent pl-12 pr-4 py-3 font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:focus:border-primary" 
-                                       required>
+                            <label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Amount (RM)</label>
+                            <div class="mt-1 relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 dark:text-gray-400 sm:text-sm">RM</span>
+                                </div>
+                                <input type="number" 
+                                       name="amount" 
+                                       id="amount" 
+                                       step="0.01" 
+                                       required 
+                                       class="pl-12 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm"
+                                       placeholder="0.00">
                             </div>
                         </div>
-
+                        
                         <div>
-                            <label class="mb-2.5 block text-black dark:text-white">Payment Date</label>
-                            <div class="relative">
-                                <input type="date" 
-                                       name="payment_date" id="payment_date" 
-                                       value="<?php echo date('Y-m-d'); ?>"
-                                       class="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:focus:border-primary" 
-                                       required>
-                            </div>
+                            <label for="payment_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Date</label>
+                            <input type="date" 
+                                   name="payment_date" 
+                                   id="payment_date" 
+                                   required 
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm"
+                                   value="<?php echo date('Y-m-d'); ?>">
                         </div>
-
+                        
                         <div>
-                            <label class="mb-2.5 block text-black dark:text-white">Payment Method</label>
-                            <div class="relative">
-                                <select name="payment_method" id="payment_method" 
-                                        class="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:focus:border-primary appearance-none" 
-                                        required>
-                                    <option value="">Select a payment method</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="check">Check</option>
-                                    <option value="credit_card">Credit Card</option>
-                                </select>
-                                <span class="absolute right-4 top-4">
-                                    <svg class="fill-current" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" fill="#64748B"></path>
-                                    </svg>
-                                </span>
-                            </div>
+                            <label for="payment_method" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Method</label>
+                            <select name="payment_method" 
+                                    id="payment_method" 
+                                    required 
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm">
+                                <option value="">Select Method</option>
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="credit_card">Credit Card</option>
+                                <option value="debit_card">Debit Card</option>
+                            </select>
                         </div>
-
+                        
                         <div>
-                            <label class="mb-2.5 block text-black dark:text-white">Notes</label>
-                            <textarea name="notes" id="notes" rows="3" 
-                                      class="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:focus:border-primary"
-                                      placeholder="Add any additional notes here..."></textarea>
+                            <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+                            <textarea name="notes" 
+                                      id="notes" 
+                                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm" 
+                                      rows="3"
+                                      placeholder="Add any additional notes here"></textarea>
                         </div>
                     </div>
 
                     <div class="flex justify-end">
-                        <button type="submit" name="submit_payment" 
-                                class="inline-flex items-center justify-center rounded-md bg-primary px-10 py-4 text-center font-medium text-white hover:bg-opacity-90">
+                        <button type="submit" 
+                                name="submit_payment" 
+                                class="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             Process Payment
                         </button>
                     </div>
@@ -284,51 +276,42 @@ ob_start();
         </div>
 
         <!-- Transaction History -->
-        <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-            <div class="border-b border-stroke px-6.5 py-4 dark:border-strokedark">
+        <div class="rounded-sm border border-stroke bg-white shadow-default dark:border-gray-700 dark:bg-gray-800">
+            <div class="border-b border-stroke px-6.5 py-4 dark:border-gray-700">
                 <h3 class="font-medium text-black dark:text-white">Transaction History</h3>
             </div>
             <div class="p-6.5">
-                <div class="max-w-full overflow-x-auto">
-                    <table class="w-full table-auto">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
                         <thead>
-                            <tr class="bg-gray-2 text-left dark:bg-meta-4">
+                            <tr class="border-b border-gray-200 dark:border-gray-700">
                                 <th class="py-4 px-4 font-medium text-black dark:text-white">Date</th>
                                 <th class="py-4 px-4 font-medium text-black dark:text-white">Type</th>
                                 <th class="py-4 px-4 font-medium text-black dark:text-white">Amount</th>
-                                <th class="py-4 px-4 font-medium text-black dark:text-white">Method</th>
-                                <th class="py-4 px-4 font-medium text-black dark:text-white">Notes</th>
+                                <th class="py-4 px-4 font-medium text-black dark:text-white">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($transactions as $transaction): ?>
-                                <tr>
-                                    <td class="border-b border-[#eee] py-4 px-4 dark:border-strokedark">
+                                <tr class="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                                    <td class="py-4 px-4 text-black dark:text-gray-300">
                                         <?php echo date('Y-m-d', strtotime($transaction['created_at'])); ?>
                                     </td>
-                                    <td class="border-b border-[#eee] py-4 px-4 dark:border-strokedark">
-                                        <span class="inline-flex rounded-full <?php echo $transaction['type'] === 'loan' ? 'bg-meta-1/10 text-meta-1' : 'bg-meta-3/10 text-meta-3'; ?> py-1 px-3 text-sm font-medium">
+                                    <td class="py-4 px-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $transaction['type'] === 'loan' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'; ?>">
                                             <?php echo ucfirst($transaction['type']); ?>
                                         </span>
                                     </td>
-                                    <td class="border-b border-[#eee] py-4 px-4 dark:border-strokedark">
+                                    <td class="py-4 px-4 text-black dark:text-gray-300">
                                         RM<?php echo number_format(abs($transaction['amount_with_sign']), 2); ?>
                                     </td>
-                                    <td class="border-b border-[#eee] py-4 px-4 dark:border-strokedark">
-                                        <?php echo ucfirst($transaction['payment_method'] ?? '-'); ?>
-                                    </td>
-                                    <td class="border-b border-[#eee] py-4 px-4 dark:border-strokedark">
-                                        <?php echo htmlspecialchars($transaction['notes'] ?? ''); ?>
+                                    <td class="py-4 px-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $transaction['status'] === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'; ?>">
+                                            <?php echo ucfirst($transaction['status']); ?>
+                                        </span>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                            <?php if (empty($transactions)): ?>
-                                <tr>
-                                    <td colspan="5" class="border-b border-[#eee] py-4 px-4 text-center dark:border-strokedark">
-                                        No transactions found
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
