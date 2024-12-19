@@ -12,8 +12,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 $items_per_page = 10;
 $current_page_transactions = isset($_GET['trans_page']) ? (int)$_GET['trans_page'] : 1;
 $current_page_activities = isset($_GET['act_page']) ? (int)$_GET['act_page'] : 1;
+$current_page_payments = isset($_GET['pay_page']) ? (int)$_GET['pay_page'] : 1;
 $offset_transactions = ($current_page_transactions - 1) * $items_per_page;
 $offset_activities = ($current_page_activities - 1) * $items_per_page;
+$offset_payments = ($current_page_payments - 1) * $items_per_page;
 
 // Database connection
 try {
@@ -96,6 +98,24 @@ try {
     $stmt->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
     $stmt->execute();
     $recent_activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get total number of payments for pagination
+    $stmt = $pdo->query("SELECT COUNT(*) FROM payments");
+    $total_payments = $stmt->fetchColumn();
+    $total_pages_payments = ceil($total_payments / $items_per_page);
+
+    // Get recent payments with pagination
+    $stmt = $pdo->prepare("
+        SELECT p.id, p.transaction_id, p.user_id, p.amount, p.payment_date, p.due_date, p.status, p.payment_method, p.reference_number, p.notes, p.created_at, p.updated_at, u.full_name
+        FROM payments p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY p.created_at DESC
+        LIMIT :offset, :limit
+    ");
+    $stmt->bindValue(':offset', $offset_payments, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
+    $stmt->execute();
+    $recent_payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
     die("Query failed: " . $e->getMessage());
@@ -232,13 +252,13 @@ try {
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         <?php foreach ($recent_transactions as $transaction): ?>
-                                        <tr>
+                                        <tr class="hover:bg-green-100">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 <?php echo htmlspecialchars($transaction['full_name'] ?? ''); ?>
                                             </td>
@@ -249,10 +269,12 @@ try {
                                                 <?php echo htmlspecialchars($transaction['description'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo $transaction['image_path'] ? '<a href="' . htmlspecialchars($transaction['image_path']) . '" target="_blank" class="text-blue-600 hover:text-blue-800">View Image</a>' : ''; ?>
+                                                <?php echo date('d M Y | h:i A', strtotime($transaction['created_at'] ?? '')); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('M d, Y H:i', strtotime($transaction['created_at'] ?? '')); ?>
+                                                <?php if ($transaction['image_path']): ?>
+                                                    <button onclick="showImageModal('<?php echo htmlspecialchars($transaction['image_path']); ?>')" class="text-blue-500">View Image</button>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
@@ -264,13 +286,120 @@ try {
                             <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                                 <div class="flex-1 flex justify-between items-center">
                                     <?php if ($current_page_transactions > 1): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
                                     <?php endif; ?>
                                     <span class="text-sm text-gray-700">
                                         Page <?php echo $current_page_transactions; ?> of <?php echo $total_pages_transactions; ?>
                                     </span>
                                     <?php if ($current_page_transactions < $total_pages_transactions): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Modal -->
+            <div id="imageModal" class="fixed z-10 inset-0 overflow-y-auto hidden" onclick="closeImageModal()">
+                <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                    <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" onclick="event.stopPropagation()">
+                        <div>
+                            <img id="modalImage" src="" alt="Transaction Image" class="w-full h-auto">
+                        </div>
+                        <div class="mt-5 sm:mt-6">
+                            <button type="button" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm" onclick="closeImageModal()">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                function showImageModal(imagePath) {
+                    document.getElementById('modalImage').src = imagePath;
+                    document.getElementById('imageModal').classList.remove('hidden');
+                }
+
+                function closeImageModal() {
+                    document.getElementById('imageModal').classList.add('hidden');
+                }
+            </script>
+
+            <!-- Recent Payments -->
+            <div class="bg-white shadow rounded-lg mb-8">
+                <div class="px-4 py-5 sm:px-6 cursor-pointer" onclick="toggleSection('payments')">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Payments</h3>
+                        <svg id="payments-icon" class="h-5 w-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div>
+                <div id="payments-content" class="flex flex-col" style="display: none;">
+                    <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                        <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                            <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <?php foreach ($recent_payments as $payment): ?>
+                                        <tr class="hover:bg-green-100">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                <?php echo htmlspecialchars($payment['full_name'] ?? ''); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                RM <?php echo number_format($payment['amount'] ?? 0, 2); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo date('j M Y | g:i A', strtotime($payment['payment_date'] ?? '')); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo date('j M Y | g:i A', strtotime($payment['due_date'] ?? '')); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo htmlspecialchars($payment['status'] ?? ''); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo htmlspecialchars($payment['payment_method'] ?? ''); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-500">
+                                                <?php if (!empty($payment['notes'])): ?>
+                                                    <button onclick="showModal('<?php echo addslashes(htmlspecialchars($payment['notes'])); ?>')" class="text-blue-500">View Note</button>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Payments Pagination -->
+                            <?php if ($total_pages_payments > 1): ?>
+                            <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                                <div class="flex-1 flex justify-between items-center">
+                                    <?php if ($current_page_payments > 1): ?>
+                                        <a href="?pay_page=<?php echo ($current_page_payments - 1); ?>&trans_page=<?php echo $current_page_transactions; ?>&act_page=<?php echo $current_page_activities; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                                    <?php endif; ?>
+                                    <span class="text-sm text-gray-700">
+                                        Page <?php echo $current_page_payments; ?> of <?php echo $total_pages_payments; ?>
+                                    </span>
+                                    <?php if ($current_page_payments < $total_pages_payments): ?>
+                                        <a href="?pay_page=<?php echo ($current_page_payments + 1); ?>&trans_page=<?php echo $current_page_transactions; ?>&act_page=<?php echo $current_page_activities; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -299,28 +428,24 @@ try {
                                         <tr>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         <?php foreach ($recent_activities as $activity): ?>
-                                        <tr>
+                                        <tr class="hover:bg-green-100">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 <?php echo htmlspecialchars($activity['full_name'] ?? 'System'); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo htmlspecialchars($activity['action'] ?? 'Unknown'); ?>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo htmlspecialchars($activity['description'] ?? 'No description'); ?>
+                                                <?php echo htmlspecialchars($activity['action'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php echo htmlspecialchars($activity['ip_address'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('M d, Y H:i', strtotime($activity['created_at'] ?? '')); ?>
+                                                <?php echo date('j M Y | g:i A', strtotime($activity['created_at'] ?? '')); ?>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
@@ -332,13 +457,13 @@ try {
                             <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                                 <div class="flex-1 flex justify-between items-center">
                                     <?php if ($current_page_activities > 1): ?>
-                                        <a href="?act_page=<?php echo ($current_page_activities - 1); ?>&trans_page=<?php echo $current_page_transactions; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                                        <a href="?act_page=<?php echo ($current_page_activities - 1); ?>&trans_page=<?php echo $current_page_transactions; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
                                     <?php endif; ?>
                                     <span class="text-sm text-gray-700">
                                         Page <?php echo $current_page_activities; ?> of <?php echo $total_pages_activities; ?>
                                     </span>
                                     <?php if ($current_page_activities < $total_pages_activities): ?>
-                                        <a href="?act_page=<?php echo ($current_page_activities + 1); ?>&trans_page=<?php echo $current_page_transactions; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                                        <a href="?act_page=<?php echo ($current_page_activities + 1); ?>&trans_page=<?php echo $current_page_transactions; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -350,10 +475,35 @@ try {
         </main>
     </div>
 
+    <!-- Modal for Notes -->
+    <div id="noteModal" class="fixed z-10 inset-0 overflow-y-auto hidden" onclick="closeModal()">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" onclick="event.stopPropagation()">
+                <div>
+                    <div class="mt-3 text-center sm:mt-5">
+                        
+                        <div class="mt-2 bg-gray-100 p-4 rounded">
+                            <p class="text-sm text-gray-700" id="noteContent">
+                                <!-- Note content will be injected here -->
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-5 sm:mt-6">
+                    <button type="button" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm" onclick="closeModal()">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Function to set initial state based on localStorage
         function initializeSections() {
-            const sections = ['transactions', 'activities'];
+            const sections = ['transactions', 'activities', 'payments'];
             sections.forEach(section => {
                 const content = document.getElementById(section + '-content');
                 const icon = document.getElementById(section + '-icon');
@@ -366,6 +516,11 @@ try {
                     localStorage.setItem(section + '_expanded', 'true');
                 } else if (section === 'activities' && isExpanded === null) {
                     // Default state for activities: collapsed
+                    content.style.display = 'none';
+                    icon.style.transform = 'rotate(0)';
+                    localStorage.setItem(section + '_expanded', 'false');
+                } else if (section === 'payments' && isExpanded === null) {
+                    // Default state for payments: collapsed
                     content.style.display = 'none';
                     icon.style.transform = 'rotate(0)';
                     localStorage.setItem(section + '_expanded', 'false');
@@ -390,6 +545,15 @@ try {
                 icon.style.transform = 'rotate(0)';
                 localStorage.setItem(section + '_expanded', 'false');
             }
+        }
+
+        function showModal(note) {
+            document.getElementById('noteContent').textContent = note;
+            document.getElementById('noteModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('noteModal').classList.add('hidden');
         }
 
         // Initialize sections when page loads
