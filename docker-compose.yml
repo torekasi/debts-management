@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: debt-app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - debt-network
+    environment:
+      DB_HOST: db
+      DB_DATABASE: debt_management
+      DB_USERNAME: debt_user
+      DB_PASSWORD: debt_password
+
+  db:
+    image: mysql:8.0
+    container_name: debt-db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: debt_management
+      MYSQL_USER: debt_user
+      MYSQL_PASSWORD: debt_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - debt-network
+
+networks:
+  debt-network:
+    driver: bridge
+
+volumes:
+  dbdata:

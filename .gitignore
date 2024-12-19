@@ -1,0 +1,33 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Configuration files with sensitive data
+config/config.php
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Log files
+*.log
+logs/
+
+# Cache files
+*.cache
+
+# Environment files
+.env
+.env.local
+.env.*.local

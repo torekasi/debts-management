@@ -1,0 +1,28 @@
+Options -Indexes
+
+RewriteEngine On
+RewriteBase /
+
+# Protect config files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect sensitive directories
+RewriteRule ^config/.* - [F,L]
+RewriteRule ^includes/.* - [F,L]
+
+# Redirect to HTTPS (uncomment when SSL is configured)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Error Documents
+ErrorDocument 404 /404.php
+ErrorDocument 403 /403.php
+
+# PHP settings
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300
+php_value max_input_time 300
