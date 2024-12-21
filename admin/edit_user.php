@@ -1,112 +1,70 @@
 <?php
 require_once '../includes/config.php';
 require_once '../includes/session.php';
-
-// Require admin authentication
 requireAdmin();
 
-$error = '';
-$success = '';
-$user = null;
-
 // Get user ID from URL
-$user_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$user_id = $_GET['id'] ?? null;
 
+if (!$user_id) {
+    $_SESSION['error'] = "No user specified.";
+    header('Location: users.php');
+    exit();
+}
+
+// Get user data
 try {
-    // Database connection
-    $options = array(
-        PDO::MYSQL_ATTR_SSL_CA => __DIR__ . '/../config/ca.pem',
-        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false
-    );
-
-    $dsn = sprintf(
-        "mysql:host=%s;port=%s;dbname=%s",
-        DB_HOST,
-        DB_PORT,
-        DB_NAME
-    );
-
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $member_id = trim($_POST['member_id'] ?? '');
-        $full_name = trim($_POST['full_name'] ?? '');
-        $password = trim($_POST['password'] ?? '');
-        $confirm_password = trim($_POST['confirm_password'] ?? '');
-
-        // Validate input
-        if (empty($member_id) || empty($full_name)) {
-            $error = "Member ID and Full Name are required.";
-        } elseif (!empty($password) && $password !== $confirm_password) {
-            $error = "Passwords do not match.";
-        } else {
-            // Check if member_id already exists for other users
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE member_id = ? AND id != ?");
-            $stmt->execute([$member_id, $user_id]);
-            if ($stmt->fetchColumn() > 0) {
-                $error = "Member ID already exists.";
-            } else {
-                // Update user
-                if (!empty($password)) {
-                    // Update with new password
-                    $stmt = $pdo->prepare("
-                        UPDATE users 
-                        SET member_id = ?, full_name = ?, password = ? 
-                        WHERE id = ? AND role != 'admin'
-                    ");
-                    $stmt->execute([
-                        $member_id,
-                        $full_name,
-                        password_hash($password, PASSWORD_DEFAULT),
-                        $user_id
-                    ]);
-                } else {
-                    // Update without changing password
-                    $stmt = $pdo->prepare("
-                        UPDATE users 
-                        SET member_id = ?, full_name = ? 
-                        WHERE id = ? AND role != 'admin'
-                    ");
-                    $stmt->execute([
-                        $member_id,
-                        $full_name,
-                        $user_id
-                    ]);
-                }
-
-                if ($stmt->rowCount() > 0) {
-                    // Log the activity
-                    $stmt = $pdo->prepare("
-                        INSERT INTO activity_logs (user_id, action, description, ip_address) 
-                        VALUES (?, 'edit_user', ?, ?)
-                    ");
-                    $stmt->execute([
-                        $_SESSION['user_id'],
-                        "Updated user: $member_id",
-                        $_SERVER['REMOTE_ADDR']
-                    ]);
-
-                    $success = "User updated successfully!";
-                } else {
-                    $error = "No changes were made or user not found.";
-                }
-            }
-        }
-    }
-
-    // Get user data
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? AND role != 'admin'");
+    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {
+        $_SESSION['error'] = "User not found.";
         header('Location: users.php');
         exit();
     }
-
 } catch (PDOException $e) {
-    $error = "Database error: " . $e->getMessage();
+    $_SESSION['error'] = "Error fetching user: " . $e->getMessage();
+    header('Location: users.php');
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $member_id = $_POST['member_id'];
+    $full_name = $_POST['full_name'];
+    $email = $_POST['email'];
+    $phone = $_POST['phone'];
+    $status = $_POST['status'];
+    
+    try {
+        // Start with base query
+        $query = "UPDATE users SET member_id = ?, full_name = ?, email = ?, phone = ?, status = ?";
+        $params = [$member_id, $full_name, $email, $phone, $status];
+
+        // Add password to query if it's provided
+        if (!empty($_POST['password'])) {
+            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+            $query .= ", password = ?";
+            $params[] = $password;
+        }
+
+        // Add where clause and user_id
+        $query .= " WHERE id = ?";
+        $params[] = $user_id;
+
+        $stmt = $conn->prepare($query);
+        $stmt->execute($params);
+        
+        $_SESSION['success'] = "User updated successfully!";
+        header('Location: users.php');
+        exit();
+    } catch (PDOException $e) {
+        if ($e->getCode() == 23000) {
+            $_SESSION['error'] = "Member ID or email already exists.";
+        } else {
+            $_SESSION['error'] = "Error updating user: " . $e->getMessage();
+        }
+    }
 }
 ?>
 
@@ -117,21 +75,19 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit User - <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-minimal/minimal.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <div class="min-h-screen">
         <!-- Navigation -->
         <?php require_once 'template/header.php'; ?>
 
         <!-- Main Content -->
-        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main class="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <!-- Page Header -->
             <div class="md:flex md:items-center md:justify-between mb-8">
                 <div class="flex-1 min-w-0">
-                    <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                        Edit User
+                    <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
+                        Edit User: <?php echo htmlspecialchars($user['full_name']); ?>
                     </h2>
                 </div>
                 <div class="mt-4 flex md:mt-0 md:ml-4">
@@ -144,73 +100,125 @@ try {
                 </div>
             </div>
 
+            <?php if (isset($_SESSION['error'])): ?>
+                <div class="rounded-md bg-red-50 p-4 mb-6">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">Error</h3>
+                            <p class="mt-1 text-sm text-red-700"><?php echo $_SESSION['error']; ?></p>
+                        </div>
+                    </div>
+                </div>
+                <?php unset($_SESSION['error']); ?>
+            <?php endif; ?>
+
             <!-- Edit User Form -->
-            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-                <form method="POST" class="space-y-8 divide-y divide-gray-200 p-8">
-                    <div class="space-y-6">
-                        <?php if ($error): ?>
-                            <div class="rounded-md bg-red-50 p-4">
-                                <div class="flex">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-3">
-                                        <h3 class="text-sm font-medium text-red-800"><?php echo $error; ?></h3>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endif; ?>
+            <div class="bg-white shadow-sm rounded-lg overflow-hidden">
+                <form action="edit_user.php?id=<?php echo $user_id; ?>" method="POST" class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Member ID -->
+                        <div>
+                            <label for="member_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                Member ID
+                            </label>
+                            <input type="text" 
+                                   name="member_id" 
+                                   id="member_id" 
+                                   required
+                                   value="<?php echo htmlspecialchars($user['member_id']); ?>"
+                                   class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400"
+                                   placeholder="Enter member ID">
+                        </div>
 
-                        <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                            <div class="sm:col-span-3">
-                                <label for="member_id" class="block text-sm font-medium text-gray-700">
-                                    Member ID
-                                </label>
-                                <div class="mt-1">
-                                    <input type="text" name="member_id" id="member_id" 
-                                           value="<?php echo htmlspecialchars($user['member_id']); ?>"
-                                           class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
-                                </div>
-                            </div>
+                        <!-- Full Name -->
+                        <div>
+                            <label for="full_name" class="block text-sm font-medium text-gray-700 mb-2">
+                                Full Name
+                            </label>
+                            <input type="text" 
+                                   name="full_name" 
+                                   id="full_name" 
+                                   required
+                                   value="<?php echo htmlspecialchars($user['full_name']); ?>"
+                                   class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400"
+                                   placeholder="Enter full name">
+                        </div>
 
-                            <div class="sm:col-span-3">
-                                <label for="full_name" class="block text-sm font-medium text-gray-700">
-                                    Full Name
-                                </label>
-                                <div class="mt-1">
-                                    <input type="text" name="full_name" id="full_name" 
-                                           value="<?php echo htmlspecialchars($user['full_name']); ?>"
-                                           class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
-                                </div>
-                            </div>
+                        <!-- Email -->
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                                Email Address
+                            </label>
+                            <input type="email" 
+                                   name="email" 
+                                   id="email" 
+                                   required
+                                   value="<?php echo htmlspecialchars($user['email']); ?>"
+                                   class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400"
+                                   placeholder="Enter email address">
+                        </div>
 
-                            <div class="sm:col-span-3">
-                                <label for="password" class="block text-sm font-medium text-gray-700">
-                                    New Password (leave blank to keep current)
-                                </label>
-                                <div class="mt-1">
-                                    <input type="password" name="password" id="password" 
-                                           class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
-                                </div>
-                            </div>
+                        <!-- Phone -->
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                                Phone Number
+                            </label>
+                            <input type="tel" 
+                                   name="phone" 
+                                   id="phone" 
+                                   required
+                                   value="<?php echo htmlspecialchars($user['phone']); ?>"
+                                   class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400"
+                                   placeholder="Enter phone number">
+                        </div>
 
-                            <div class="sm:col-span-3">
-                                <label for="confirm_password" class="block text-sm font-medium text-gray-700">
-                                    Confirm New Password
-                                </label>
-                                <div class="mt-1">
-                                    <input type="password" name="confirm_password" id="confirm_password" 
-                                           class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
-                                </div>
+                        <!-- Password -->
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                                New Password
+                            </label>
+                            <div class="relative">
+                                <input type="password" 
+                                       name="password" 
+                                       id="password"
+                                       class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400"
+                                       placeholder="Enter new password (leave empty to keep current)">
+                                <button type="button" 
+                                        class="absolute inset-y-0 right-0 pr-3 flex items-center" 
+                                        onclick="togglePassword('password')">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </button>
                             </div>
+                            <p class="mt-1 text-sm text-gray-500">Leave blank to keep current password</p>
+                        </div>
+
+                        <!-- Status -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
+                                Status
+                            </label>
+                            <select name="status" 
+                                    id="status" 
+                                    required
+                                    class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400">
+                                <option value="active" <?php echo $user['status'] === 'active' ? 'selected' : ''; ?>>Active</option>
+                                <option value="inactive" <?php echo $user['status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div class="pt-5">
+                    <div class="pt-6 border-t border-gray-200">
                         <div class="flex justify-end">
-                            <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <button type="submit" 
+                                    class="inline-flex justify-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
                                 Update User
                             </button>
                         </div>
@@ -220,19 +228,19 @@ try {
         </main>
     </div>
 
-    <?php if ($success): ?>
     <script>
-        Swal.fire({
-            title: 'Success!',
-            text: '<?php echo $success; ?>',
-            icon: 'success',
-            confirmButtonColor: '#4F46E5'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'users.php';
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const password = document.getElementById('password').value;
+            if (password && password.length < 8) {
+                e.preventDefault();
+                alert('Password must be at least 8 characters long.');
             }
         });
     </script>
-    <?php endif; ?>
 </body>
 </html>

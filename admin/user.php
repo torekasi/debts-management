@@ -172,22 +172,9 @@ $remaining_debt = $total_debt - $total_paid;
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen">
-        <!-- Navigation -->
-        <nav class="bg-white shadow-lg">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <div class="flex-shrink-0 flex items-center">
-                            <a href="dashboard.php" class="text-2xl font-bold text-gray-800"><?php echo APP_NAME; ?></a>
-                        </div>
-                    </div>
-                    <div class="flex items-center">
-                        <a href="dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
-                        <a href="auth/logout.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Logout</a>
-                    </div>
-                </div>
-            </div>
-        </nav>
+      <!-- Navigation -->
+      <?php require_once 'template/header.php'; ?>
+
 
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">

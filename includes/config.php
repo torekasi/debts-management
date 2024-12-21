@@ -32,7 +32,7 @@ try {
 }
 
 // Application Configuration
-define('APP_NAME', 'Management System');
+define('APP_NAME', 'Mini Mart 3099');
 define('APP_URL', 'http://localhost:8080'); // Change this to your domain
 define('APP_VERSION', '1.0.0');
 

@@ -32,7 +32,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </div>
             <div class="flex items-center">
                 <span class="text-gray-700 mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
-                <a href="logout.php" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors">Logout</a>
+                <a href="/auth/logout.php" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors">Logout</a>
             </div>
         </div>
     </div>
