@@ -8,7 +8,22 @@ session_start();
 
 // Set base path and include required files
 $base_path = dirname(dirname(__FILE__));
-require_once $base_path . '/config/config.php';
+require_once $base_path . '/includes/config.php';
+
+// Function to check if the session is active and redirect accordingly
+function checkSessionAndRedirect() {
+    if (isset($_SESSION['user_id'])) {
+        if ($_SESSION['role'] === 'admin') {
+            header('Location: /admin/dashboard.php');
+        } else {
+            header('Location: /user/dashboard.php');
+        }
+        exit();
+    }
+}
+
+// Check session status on page load
+checkSessionAndRedirect();
 
 try {
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";

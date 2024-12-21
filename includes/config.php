@@ -1,34 +1,67 @@
 <?php
-// Application configuration
-define('APP_NAME', 'Debt Manager');
-define('APP_URL', 'http://localhost/debt-apps');
-define('APP_VERSION', '1.0.0');
+// Start session at the very beginning if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    // Set session configuration before starting the session
+    ini_set('session.gc_maxlifetime', 86400); // 24 hours
+    ini_set('session.cookie_lifetime', 86400);
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+    }
+    session_start();
+}
 
-// Database configuration
+// Database Configuration
 define('DB_HOST', 'mysql-220bd3b5-nefizon.j.aivencloud.com');
 define('DB_USER', 'avnadmin');
 define('DB_PASS', 'AVNS_thBeU0OT2NZXwAVLoDM');
 define('DB_NAME', 'defaultdb');
 define('DB_PORT', '23853');
 
-// Session configuration
-define('SESSION_LIFETIME', 3600); // 1 hour
-define('SESSION_NAME', 'debt_manager_session');
-
-// Security configuration
-define('HASH_COST', 10); // for password_hash()
-define('AUTH_SALT', 'your_unique_salt_here');
-
-// Error reporting
-define('DISPLAY_ERRORS', true);
-if (DISPLAY_ERRORS) {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-} else {
-    error_reporting(0);
-    ini_set('display_errors', 0);
+// Establish database connection using PDO
+try {
+    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+    $conn = new PDO($dsn, DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]);
+} catch (PDOException $e) {
+    die("Database connection failed: " . $e->getMessage());
 }
 
-// Timezone
-date_default_timezone_set('Asia/Manila');
-?>
+// Application Configuration
+define('APP_NAME', 'Management System');
+define('APP_URL', 'http://localhost:8080'); // Change this to your domain
+define('APP_VERSION', '1.0.0');
+
+// Session Configuration
+define('SESSION_LIFETIME', 86400); // 24 hours
+
+// Upload Configuration
+define('UPLOAD_MAX_SIZE', 10 * 1024 * 1024); // 10MB
+define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/gif']);
+define('UPLOAD_PATH', __DIR__ . '/../uploads');
+
+// Notification Settings
+define('PAYMENT_REMINDER_DAYS', 3); // Send reminder 3 days before due date
+define('PAYMENT_OVERDUE_DAYS', 1); // Send overdue notice 1 day after due date
+
+// Error Reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/error.log');
+
+// Create necessary directories
+$directories = [
+    __DIR__ . '/../uploads',
+    __DIR__ . '/../logs'
+];
+
+foreach ($directories as $dir) {
+    if (!file_exists($dir)) {
+        mkdir($dir, 0777, true);
+    }
+}

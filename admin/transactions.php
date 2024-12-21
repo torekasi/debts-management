@@ -1,11 +1,9 @@
 <?php
-session_start();
-$base_path = dirname(dirname(__FILE__));
-require_once $base_path . '/config/config.php';
-
 $page_title = 'Transactions';
+require_once 'templates/layout.php';
 
 try {
+    // Database connection
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -79,8 +77,6 @@ try {
     header("Location: /admin/dashboard.php");
     exit();
 }
-
-require_once 'templates/header.php';
 ?>
 
 <!-- Main Content -->
@@ -88,7 +84,7 @@ require_once 'templates/header.php';
     <!-- Header -->
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-semibold text-gray-900">Transaction History</h1>
-        <a href="/admin/payments.php" 
+        <a href="add_transaction.php" 
            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
             <i class="fas fa-plus mr-2"></i>
             New Transaction
@@ -116,7 +112,7 @@ require_once 'templates/header.php';
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Total Loans</p>
-                    <p class="text-2xl font-semibold text-gray-900">₱<?php echo number_format($summary['total_loans'], 2); ?></p>
+                    <p class="text-2xl font-semibold text-gray-900">RM<?php echo number_format($summary['total_loans'], 2); ?></p>
                 </div>
             </div>
         </div>
@@ -128,7 +124,7 @@ require_once 'templates/header.php';
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-500">Total Payments</p>
-                    <p class="text-2xl font-semibold text-gray-900">₱<?php echo number_format($summary['total_payments'], 2); ?></p>
+                    <p class="text-2xl font-semibold text-gray-900">RM<?php echo number_format($summary['total_payments'], 2); ?></p>
                 </div>
             </div>
         </div>
@@ -252,5 +248,3 @@ require_once 'templates/header.php';
         </div>
     </div>
 </div>
-
-<?php require_once 'templates/footer.php'; ?>

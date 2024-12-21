@@ -1,193 +1,440 @@
 <?php
-session_start();
-$base_path = dirname(dirname(__FILE__));
-require_once $base_path . '/config/config.php';
+require_once '../includes/config.php';
+require_once '../includes/session.php';
 
-$page_title = 'User Management';
+// Require admin authentication
+requireAdmin();
 
+// Pagination settings
+$items_per_page = 10;
+$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($current_page - 1) * $items_per_page;
+
+// Database connection
 try {
-    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
+    $options = array(
+        PDO::MYSQL_ATTR_SSL_CA => __DIR__ . '/../config/ca.pem',
+        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false
+    );
 
-    // Handle user creation
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-        if ($_POST['action'] === 'create') {
-            $member_id = $_POST['member_id'];
-            $full_name = $_POST['full_name'];
-            $email = $_POST['email'];
-            $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            $role = $_POST['role'];
+    $dsn = sprintf(
+        "mysql:host=%s;port=%s;dbname=%s",
+        DB_HOST,
+        DB_PORT,
+        DB_NAME
+    );
 
-            $stmt = $pdo->prepare("INSERT INTO users (member_id, full_name, email, password, role) VALUES (?, ?, ?, ?, ?)");
-            if ($stmt->execute([$member_id, $full_name, $email, $password, $role])) {
-                $_SESSION['success_message'] = "User created successfully!";
-            } else {
-                $_SESSION['error_message'] = "Failed to create user.";
-            }
-            header("Location: /admin/users.php");
-            exit();
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
+}
+
+// Handle user status toggle
+if (isset($_POST['toggle_status']) && isset($_POST['user_id'])) {
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE users 
+            SET status = CASE 
+                WHEN status = 'active' THEN 'inactive' 
+                ELSE 'active' 
+            END 
+            WHERE id = ? AND role != 'admin'
+        ");
+        $stmt->execute([$_POST['user_id']]);
+        
+        // Log the activity
+        $new_status = $stmt->rowCount() > 0 ? "Status updated" : "No change";
+        $stmt = $pdo->prepare("
+            INSERT INTO activity_logs (user_id, action, description, ip_address) 
+            VALUES (?, 'update_user_status', ?, ?)
+        ");
+        $stmt->execute([$_SESSION['user_id'], $new_status, $_SERVER['REMOTE_ADDR']]);
+        
+        header('Location: users.php?page=' . $current_page . '&status=updated');
+        exit();
+    } catch (PDOException $e) {
+        $error = "Error updating user status: " . $e->getMessage();
+    }
+}
+
+// Get total number of users for pagination
+try {
+    $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'");
+    $total_users = $stmt->fetchColumn();
+    $total_pages = ceil($total_users / $items_per_page);
+
+    // Get user statistics
+    $stats = [
+        'total_users' => $total_users,
+        'active_users' => 0,
+        'inactive_users' => 0,
+        'new_users_this_month' => 0
+    ];
+
+    // Get active/inactive users count
+    $stmt = $pdo->query("SELECT status, COUNT(*) as count FROM users WHERE role = 'user' GROUP BY status");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if ($row['status'] === 'active') {
+            $stats['active_users'] = $row['count'];
+        } else {
+            $stats['inactive_users'] = $row['count'];
         }
     }
 
-    // Fetch all users
-    $users = $pdo->query("
-        SELECT u.*, 
-               COALESCE(SUM(CASE WHEN d.status = 'unpaid' THEN d.amount ELSE 0 END), 0) as total_debt,
-               COUNT(DISTINCT d.id) as total_transactions,
-               MAX(p.payment_date) as last_payment
-        FROM users u
-        LEFT JOIN debts d ON u.id = d.user_id
-        LEFT JOIN payments p ON u.id = p.user_id
-        WHERE u.role = 'user'
-        GROUP BY u.id
-        ORDER BY u.full_name ASC
-    ")->fetchAll();
+    // Get new users this month
+    $stmt = $pdo->query("
+        SELECT COUNT(*) 
+        FROM users 
+        WHERE role = 'user' 
+        AND MONTH(created_at) = MONTH(CURRENT_DATE()) 
+        AND YEAR(created_at) = YEAR(CURRENT_DATE())
+    ");
+    $stats['new_users_this_month'] = $stmt->fetchColumn();
+
+    // Get monthly user registrations for the last 12 months
+    $stmt = $pdo->query("
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as month,
+            COUNT(*) as count
+        FROM users
+        WHERE role = 'user'
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month ASC
+    ");
+    $monthly_registrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Format data for Chart.js
+    $chart_labels = [];
+    $registration_counts = [];
+    
+    // Get the last 12 months
+    for ($i = 11; $i >= 0; $i--) {
+        $month = date('Y-m', strtotime("-$i months"));
+        $chart_labels[] = date('M Y', strtotime($month . '-01'));
+        
+        // Find registration count for this month
+        $count = 0;
+        foreach ($monthly_registrations as $row) {
+            if ($row['month'] === $month) {
+                $count = (int)$row['count'];
+                break;
+            }
+        }
+        $registration_counts[] = $count;
+    }
+
+    // Get users with pagination
+    $stmt = $pdo->prepare("
+        SELECT id, member_id, full_name, status, created_at
+        FROM users 
+        WHERE role = 'user'
+        ORDER BY created_at DESC
+        LIMIT :offset, :limit
+    ");
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
+    $stmt->execute();
+    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    error_log("Users page error: " . $e->getMessage());
-    $_SESSION['error_message'] = "An error occurred while loading the users page.";
-    header("Location: /admin/dashboard.php");
-    exit();
+    die("Query failed: " . $e->getMessage());
 }
-
-require_once 'templates/header.php';
 ?>
 
-<!-- Create User Modal -->
-<div id="createUserModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center <?php echo isset($_GET['action']) && $_GET['action'] === 'create' ? '' : 'hidden'; ?>">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="text-lg font-medium text-gray-900">Create New User</h3>
-            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-500">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <form action="/admin/users.php" method="POST" class="p-6">
-            <input type="hidden" name="action" value="create">
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="member_id" class="block text-sm font-medium text-gray-700">Member ID</label>
-                    <input type="text" name="member_id" id="member_id" required
-                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - <?php echo APP_NAME; ?></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-minimal/minimal.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <?php require_once 'template/header.php'; ?>
 
-                <div>
-                    <label for="full_name" class="block text-sm font-medium text-gray-700">Full Name</label>
-                    <input type="text" name="full_name" id="full_name" required
-                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Page Header -->
+            <div class="md:flex md:items-center md:justify-between mb-8">
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        User Management
+                    </h2>
                 </div>
-
-                <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                    <input type="email" name="email" id="email" required
-                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                </div>
-
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" name="password" id="password" required
-                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                </div>
-
-                <div>
-                    <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
-                    <select name="role" id="role" required
-                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                    </select>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <a href="add_user.php" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add New User
+                    </a>
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-end space-x-3">
-                <button type="button" onclick="closeModal()"
-                        class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-                    Create User
-                </button>
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_users']); ?></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Active Users</dt>
+                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['active_users']); ?></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Inactive Users</dt>
+                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['inactive_users']); ?></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">New Users This Month</dt>
+                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['new_users_this_month']); ?></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </form>
-    </div>
-</div>
 
-<!-- Main Content -->
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-semibold text-gray-900">User Management</h1>
-        <a href="/admin/users.php?action=create" 
-           class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-            <i class="fas fa-user-plus mr-2"></i>
-            Add New User
-        </a>
-    </div>
+            <!-- Monthly User Registrations Chart -->
+            <div class="bg-white shadow rounded-lg mb-8 p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Monthly User Registrations</h3>
+                <div class="w-full" style="height: 350px;">
+                    <canvas id="registrationsChart"></canvas>
+                </div>
+            </div>
 
-    <!-- Users Table -->
-    <div class="bg-white shadow rounded-lg">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead>
-                    <tr>
-                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member ID</th>
-                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
-                        <th class="px-6 py-3 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Transactions</th>
-                        <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Payment</th>
-                        <th class="px-6 py-3 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    <?php foreach ($users as $user): ?>
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            <?php echo htmlspecialchars($user['member_id']); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <?php echo htmlspecialchars($user['full_name']); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <?php echo htmlspecialchars($user['email']); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                            ₱<?php echo number_format($user['total_debt'], 2); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">
-                            <?php echo $user['total_transactions']; ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <?php echo $user['last_payment'] ? date('M d, Y', strtotime($user['last_payment'])) : 'No payments'; ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
-                            <a href="/admin/payments.php?user_id=<?php echo $user['id']; ?>" class="text-indigo-600 hover:text-indigo-900 mr-3">
-                                <i class="fas fa-money-check-alt"></i>
+            <!-- Users Table -->
+            <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Member ID
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Full Name
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Joined Date
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($users as $user): ?>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <?php echo htmlspecialchars($user['member_id']); ?>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <?php echo htmlspecialchars($user['full_name']); ?>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $user['status'] === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                        <?php echo ucfirst($user['status']); ?>
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <?php echo date('j M Y', strtotime($user['created_at'])); ?>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div class="flex justify-end space-x-2">
+                                        <a href="edit_user.php?id=<?php echo $user['id']; ?>" class="text-indigo-600 hover:text-indigo-900">
+                                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </a>
+                                        <form action="users.php" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to toggle this user\'s status?');">
+                                            <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                            <button type="submit" name="toggle_status" class="text-gray-600 hover:text-gray-900">
+                                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <?php if ($total_pages > 1): ?>
+                <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        <?php if ($current_page > 1): ?>
+                            <a href="?page=<?php echo ($current_page - 1); ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Previous
                             </a>
-                            <a href="/admin/transactions.php?user_id=<?php echo $user['id']; ?>" class="text-gray-600 hover:text-gray-900">
-                                <i class="fas fa-history"></i>
+                        <?php endif; ?>
+                        <?php if ($current_page < $total_pages): ?>
+                            <a href="?page=<?php echo ($current_page + 1); ?>" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                Next
                             </a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing
+                                <span class="font-medium"><?php echo $offset + 1; ?></span>
+                                to
+                                <span class="font-medium"><?php echo min($offset + $items_per_page, $total_users); ?></span>
+                                of
+                                <span class="font-medium"><?php echo $total_users; ?></span>
+                                results
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                <?php if ($current_page > 1): ?>
+                                    <a href="?page=<?php echo ($current_page - 1); ?>" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">Previous</span>
+                                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                    </a>
+                                <?php endif; ?>
+
+                                <?php
+                                $start_page = max(1, $current_page - 2);
+                                $end_page = min($total_pages, $current_page + 2);
+
+                                for ($i = $start_page; $i <= $end_page; $i++):
+                                ?>
+                                    <a href="?page=<?php echo $i; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium <?php echo $i === $current_page ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+
+                                <?php if ($current_page < $total_pages): ?>
+                                    <a href="?page=<?php echo ($current_page + 1); ?>" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <span class="sr-only">Next</span>
+                                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 13v2m8-2v2H7m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </a>
+                                <?php endif; ?>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </main>
     </div>
-</div>
 
-<script>
-function closeModal() {
-    document.getElementById('createUserModal').classList.add('hidden');
-    // Update URL without refreshing
-    history.pushState({}, '', '/admin/users.php');
-}
-</script>
+    <?php if (isset($_GET['status']) && $_GET['status'] === 'updated'): ?>
+    <script>
+        Swal.fire({
+            title: 'Success!',
+            text: 'User status has been updated successfully.',
+            icon: 'success',
+            confirmButtonColor: '#4F46E5'
+        });
+    </script>
+    <?php endif; ?>
 
-<?php require_once 'templates/footer.php'; ?>
+    <script>
+        // Chart initialization
+        const ctx = document.getElementById('registrationsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: <?php echo json_encode($chart_labels); ?>,
+                datasets: [{
+                    label: 'New Users',
+                    data: <?php echo json_encode($registration_counts); ?>,
+                    backgroundColor: 'rgba(79, 70, 229, 0.5)',
+                    borderColor: 'rgb(79, 70, 229)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 0,
+                            minRotation: 0
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,12 +1,9 @@
 <?php
 require_once '../includes/config.php';
-session_start();
+require_once '../includes/session.php';
 
-// Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: login.php');
-    exit();
-}
+// Require admin authentication
+requireAdmin();
 
 // Pagination settings
 $items_per_page = 10;
@@ -41,7 +38,6 @@ try {
 // Get dashboard statistics
 $stats = [
     'total_users' => 0,
-    'total_debts' => 0,
     'total_transactions' => 0,
     'total_payments' => 0
 ];
@@ -51,10 +47,6 @@ try {
     $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'");
     $stats['total_users'] = $stmt->fetchColumn();
 
-    // Get total debts amount
-    $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM debts WHERE status = 'unpaid'");
-    $stats['total_debts'] = $stmt->fetchColumn();
-
     // Get total transactions
     $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
     $stats['total_transactions'] = $stmt->fetchColumn();
@@ -62,6 +54,71 @@ try {
     // Get total payments
     $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM payments");
     $stats['total_payments'] = $stmt->fetchColumn();
+
+    // Get monthly transactions and payments for the last 12 months
+    $stmt = $pdo->query("
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as month,
+            COUNT(*) as count,
+            COALESCE(SUM(amount), 0) as total_amount
+        FROM transactions
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month ASC
+    ");
+    $monthly_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmt = $pdo->query("
+        SELECT 
+            DATE_FORMAT(payment_date, '%Y-%m') as month,
+            COUNT(*) as count,
+            COALESCE(SUM(amount), 0) as total_amount
+        FROM payments
+        WHERE payment_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+        ORDER BY month ASC
+    ");
+    $monthly_payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Format data for Chart.js
+    $chart_labels = [];
+    $transaction_amounts = [];
+    $payment_amounts = [];
+    
+    // Get all unique months
+    $all_months = [];
+    
+    // Get the last 12 months
+    for ($i = 11; $i >= 0; $i--) {
+        $month = date('Y-m', strtotime("-$i months"));
+        $all_months[$month] = true;
+    }
+    
+    // Fill in the data arrays
+    foreach (array_keys($all_months) as $month) {
+        // Format month to show abbreviated month name
+        $chart_labels[] = date('M Y', strtotime($month . '-01'));
+        
+        // Find transaction amount for this month
+        $trans_amount = 0;
+        foreach ($monthly_transactions as $row) {
+            if ($row['month'] === $month) {
+                $trans_amount = floatval($row['total_amount']);
+                break;
+            }
+        }
+        $transaction_amounts[] = $trans_amount;
+        
+        // Find payment amount for this month
+        $pay_amount = 0;
+        foreach ($monthly_payments as $row) {
+            if ($row['month'] === $month) {
+                $pay_amount = floatval($row['total_amount']);
+                break;
+            }
+        }
+        $payment_amounts[] = $pay_amount;
+    }
 
     // Get total number of transactions for pagination
     $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
@@ -73,6 +130,7 @@ try {
         SELECT t.id, t.amount, t.description, t.image_path, t.created_at, u.full_name
         FROM transactions t
         JOIN users u ON t.user_id = u.id
+        WHERE t.type != 'debt'
         ORDER BY t.created_at DESC
         LIMIT :offset, :limit
     ");
@@ -106,7 +164,7 @@ try {
 
     // Get recent payments with pagination
     $stmt = $pdo->prepare("
-        SELECT p.id, p.transaction_id, p.user_id, p.amount, p.payment_date, p.due_date, p.status, p.payment_method, p.reference_number, p.notes, p.created_at, p.updated_at, u.full_name
+        SELECT p.id, p.transaction_id, p.user_id, p.amount, p.payment_date, p.created_at, u.full_name
         FROM payments p
         JOIN users u ON p.user_id = u.id
         ORDER BY p.created_at DESC
@@ -130,6 +188,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .collapsed {
             display: none;
@@ -139,26 +198,12 @@ try {
 <body class="bg-gray-100">
     <div class="min-h-screen">
         <!-- Navigation -->
-        <nav class="bg-white shadow-lg">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="flex justify-between h-16">
-                    <div class="flex">
-                        <div class="flex-shrink-0 flex items-center">
-                            <h1 class="text-xl font-bold"><?php echo APP_NAME; ?></h1>
-                        </div>
-                    </div>
-                    <div class="flex items-center">
-                        <span class="text-gray-700 mr-4">Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
-                        <a href="logout.php" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium">Logout</a>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <?php require_once 'template/header.php'; ?>
 
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
@@ -171,24 +216,6 @@ try {
                                 <dl>
                                     <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
                                     <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_users']); ?></dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
-                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Outstanding Debts</dt>
-                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($stats['total_debts'], 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
@@ -229,6 +256,14 @@ try {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Monthly Transactions vs Payments Chart -->
+            <div class="bg-white shadow rounded-lg mb-8 p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Monthly Transactions vs Payments</h3>
+                <div class="w-full" style="height: 350px;">
+                    <canvas id="monthlyChart"></canvas>
                 </div>
             </div>
 
@@ -351,10 +386,7 @@ try {
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
@@ -370,18 +402,7 @@ try {
                                                 <?php echo date('j M Y | g:i A', strtotime($payment['payment_date'] ?? '')); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('j M Y | g:i A', strtotime($payment['due_date'] ?? '')); ?>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo htmlspecialchars($payment['status'] ?? ''); ?>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo htmlspecialchars($payment['payment_method'] ?? ''); ?>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-500">
-                                                <?php if (!empty($payment['notes'])): ?>
-                                                    <button onclick="showModal('<?php echo addslashes(htmlspecialchars($payment['notes'])); ?>')" class="text-blue-500">View Note</button>
-                                                <?php endif; ?>
+                                                <?php echo date('j M Y | g:i A', strtotime($payment['created_at'] ?? '')); ?>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
@@ -501,6 +522,60 @@ try {
     </div>
 
     <script>
+        // Chart initialization
+        const ctx = document.getElementById('monthlyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: <?php echo json_encode($chart_labels); ?>,
+                datasets: [
+                    {
+                        label: 'Transactions',
+                        data: <?php echo json_encode($transaction_amounts); ?>,
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)', // Blue
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Payments',
+                        data: <?php echo json_encode($payment_amounts); ?>,
+                        backgroundColor: 'rgba(16, 185, 129, 0.5)', // Green
+                        borderColor: 'rgb(16, 185, 129)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 0,
+                            minRotation: 0
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'RM ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': RM ' + context.raw.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         // Function to set initial state based on localStorage
         function initializeSections() {
             const sections = ['transactions', 'activities', 'payments'];

@@ -14,16 +14,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Create debts table
-CREATE TABLE IF NOT EXISTS `debts` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `user_id` INT NOT NULL,
-    `amount` DECIMAL(10,2) NOT NULL,
-    `description` TEXT,
-    `status` ENUM('unpaid', 'paid') DEFAULT 'unpaid',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-);
+
 
 -- Create transactions table
 CREATE TABLE IF NOT EXISTS `transactions` (

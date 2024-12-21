@@ -1,5 +1,4 @@
 <?php
-require_once '../config/database.php';
 require_once '../auth/auth_check.php';
 require_once '../includes/upload_handler.php';
 
