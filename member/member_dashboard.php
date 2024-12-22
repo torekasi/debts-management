@@ -1,232 +1,274 @@
 <?php
-$page_title = "Dashboard";
 require_once '../includes/config.php';
 require_once '../includes/session.php';
 requireUser();
 
-// Initialize database connection
-try {
-    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $conn = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
-} catch (PDOException $e) {
-    error_log("Database connection error: " . $e->getMessage());
-    die("Connection failed. Please try again later.");
-}
+// Get user information
+$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$user = $stmt->fetch();
 
-// Get user's data
-try {
-    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+// Get user transactions
+$stmt = $conn->prepare("
+    SELECT * FROM transactions 
+    WHERE user_id = ? 
+    ORDER BY created_at DESC 
+    LIMIT 10
+");
+$stmt->execute([$_SESSION['user_id']]);
+$transactions = $stmt->fetchAll();
 
-    // If user not found, redirect to login
-    if (!$user) {
-        $_SESSION['error'] = "User not found. Please login again.";
-        header("Location: /auth/login.php");
-        exit;
-    }
-
-    // Get user's total debt
-    $stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) as total_debt FROM debts WHERE user_id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
-    $debt = $stmt->fetch(PDO::FETCH_ASSOC);
-    $total_debt = $debt['total_debt'];
-
-    // Get user's total payments
-    $stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE user_id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
-    $payment = $stmt->fetch(PDO::FETCH_ASSOC);
-    $total_paid = $payment['total_paid'];
-
-    // Calculate remaining debt
-    $remaining_debt = $total_debt - $total_paid;
-
-    // Get recent payments
-    $stmt = $conn->prepare("
-        SELECT p.*, u.full_name 
-        FROM payments p 
-        LEFT JOIN users u ON p.user_id = u.id 
-        WHERE p.user_id = ? 
-        ORDER BY p.payment_date DESC 
-        LIMIT 5
-    ");
-    $stmt->execute([$_SESSION['user_id']]);
-    $recent_payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    error_log("Database error: " . $e->getMessage());
-    $_SESSION['error'] = "An error occurred while fetching your data. Please try again later.";
-    $user = null;
-    $total_debt = 0;
-    $total_paid = 0;
-    $remaining_debt = 0;
-    $recent_payments = [];
-}
-
-// Start output buffering to capture the content
-ob_start();
-
-// Display any error messages
-if (isset($_SESSION['error'])) {
-    echo '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">';
-    echo '<span class="block sm:inline">' . htmlspecialchars($_SESSION['error']) . '</span>';
-    echo '</div>';
-    unset($_SESSION['error']);
-}
+// Calculate total debt
+$stmt = $conn->prepare("
+    SELECT SUM(amount) as total_debt 
+    FROM transactions 
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+$totalDebt = $stmt->fetch()['total_debt'] ?? 0;
 ?>
-
-<!-- Dashboard Content -->
-<div class="bg-gray-50 min-h-screen pb-20">
-    <!-- Welcome Section -->
-    <div class="bg-white shadow-sm">
-        <div class="p-4">
-            <h1 class="text-xl font-bold text-gray-900">
-                Welcome <?php echo $user ? htmlspecialchars($user['full_name']) : ''; ?>!
-            </h1>
-            <?php if ($user): ?>
-            <p class="mt-1 text-sm text-gray-500">
-                Member ID: <?php echo htmlspecialchars($user['member_id']); ?>
-            </p>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Stats Grid -->
-    <div class="p-4">
-        <!-- Debt and Payment Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <!-- Total Debt -->
-            <div class="bg-red-500 shadow-sm rounded-lg text-white">
-                <div class="p-6">
-                    <dl>
-                        <dt class="text-sm font-medium text-white/90 truncate">Total Debt</dt>
-                        <dd class="text-2xl font-bold mt-2">RM <?php echo number_format($total_debt, 2); ?></dd>
-                    </dl>
-                </div>
-            </div>
-
-            <!-- Total Paid -->
-            <div class="bg-green-500 shadow-sm rounded-lg text-white">
-                <div class="p-6">
-                    <dl>
-                        <dt class="text-sm font-medium text-white/90 truncate">Total Paid</dt>
-                        <dd class="text-2xl font-bold mt-2">RM <?php echo number_format($total_paid, 2); ?></dd>
-                    </dl>
-                </div>
-            </div>
-        </div>
-
-        <!-- Remaining Debt -->
-        <div class="bg-white shadow-sm rounded-lg">
-            <div class="p-4">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 rounded-md bg-blue-500 p-3">
-                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                        </svg>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Remaining Debt</dt>
-                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($remaining_debt, 2); ?></dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Payments -->
-    <div class="bg-white shadow-sm mt-4">
-        <div class="p-4 border-b border-gray-200">
-            <h2 class="text-lg font-medium text-gray-900">Recent Payments</h2>
-        </div>
-        <?php if (empty($recent_payments)): ?>
-            <div class="text-center py-4">
-                <p class="text-gray-500">No recent payments found.</p>
-            </div>
-        <?php else: ?>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        <?php foreach ($recent_payments as $payment): ?>
-                            <tr>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                    <?php echo date('M d, Y', strtotime($payment['payment_date'])); ?>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                    RM <?php echo number_format($payment['amount'], 2); ?>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        <?php echo ucfirst($payment['status']); ?>
-                                    </span>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Payment Progress -->
-    <?php if ($total_debt > 0): ?>
-    <div class="bg-white shadow-sm mt-4">
-        <div class="p-4">
-            <h2 class="text-lg font-medium text-gray-900 mb-4">Payment Progress</h2>
-            <div class="w-full h-64">
-                <canvas id="paymentChart"></canvas>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-</div>
-
-<?php if ($total_debt > 0): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    // Payment progress chart
-    const ctx = document.getElementById('paymentChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Paid', 'Remaining'],
-            datasets: [{
-                data: [<?php echo $total_paid; ?>, <?php echo $remaining_debt; ?>],
-                backgroundColor: [
-                    'rgb(34, 197, 94)',
-                    'rgb(234, 179, 8)'
-                ],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            },
-            cutout: '70%'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Dashboard - <?php echo APP_NAME; ?></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            padding-top: 4rem;
+            padding-bottom: 4rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-    });
-</script>
-<?php endif; ?>
+        .content-container {
+            flex: 1;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 1rem;
+            width: 100%;
+        }
+        @media (max-width: 768px) {
+            .content-container {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <?php include 'template/member_header.php'; ?>
 
-<?php
-$content = ob_get_clean();
-require_once 'template/member_header.php';
-?>
+    <main class="content-container">
+        <!-- Financial Overview Cards -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-2 sm:p-4 text-center">
+                <div class="flex items-center justify-center mb-1">
+                    <i class="fas fa-shopping-cart text-blue-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
+                    <h3 class="text-xs sm:text-sm font-medium text-blue-500"> Shoppings</h3>
+                </div>
+                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM<?php echo number_format($totalDebt, 2); ?></p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-2 sm:p-4 text-center">
+                <div class="flex items-center justify-center mb-1">
+                    <i class="fas fa-credit-card text-green-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
+                    <h3 class="text-xs sm:text-sm font-medium text-green-500">Payments Made</h3>
+                </div>
+                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM0.00</p>
+            </div>
+            <div class="bg-purple-50 rounded-lg shadow-md p-2 sm:p-4 text-center">
+                <div class="flex items-center justify-center mb-1">
+                    <i class="fas fa-balance-scale text-purple-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
+                    <h3 class="text-xs sm:text-sm font-medium text-purple-500">Balance to Pay</h3>
+                </div>
+                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM<?php echo number_format($totalDebt, 2); ?></p>
+            </div>
+        </div>
+
+        <!-- Add Shopping Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-cart-plus text-blue-500 text-2xl mr-3"></i>
+                <h2 class="text-xl font-bold text-gray-800">Add Shopping</h2>
+            </div>
+            <form action="add_transaction.php" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <div class="relative">
+                    <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount (RM)</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-money-bill-wave text-gray-400"></i>
+                        </div>
+                        <input type="number" 
+                            step="0.01" 
+                            name="amount" 
+                            id="amount" 
+                            class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition duration-150"
+                            placeholder="0.00"
+                            required>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <label for="type" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-credit-card text-gray-400"></i>
+                        </div>
+                        <select name="type" 
+                            id="type" 
+                            class="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 appearance-none cursor-pointer bg-white">
+                            <option value="Purchase" selected>Purchase</option>
+                            <option value="Cash">Cash Payment</option>
+                            <option value="QR">QR Payment</option>
+                            <option value="Transfer">Bank Transfer</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <i class="fas fa-chevron-down text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <div class="relative">
+                        <div class="absolute top-3 left-0 pl-3 flex items-start pointer-events-none">
+                            <i class="fas fa-file-alt text-gray-400"></i>
+                        </div>
+                        <textarea 
+                            name="description" 
+                            id="description" 
+                            rows="2"
+                            class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition duration-150 resize-none"
+                            placeholder="Enter description"
+                            required></textarea>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <label for="receipt_image" class="block text-sm font-medium text-gray-700 mb-1">Take Photo</label>
+                    <div class="mt-1 flex flex-col items-center px-4 pt-3 pb-4 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors duration-150">
+                        <div class="space-y-1 text-center">
+                            <div class="flex flex-col items-center">
+                                <i class="fas fa-camera text-gray-400 text-2xl mb-2"></i>
+                                <div class="flex flex-col items-center text-sm text-gray-600">
+                                    <button type="button" 
+                                        id="capture_button"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-1">
+                                        <i class="fas fa-camera mr-2"></i>
+                                        Take Photo
+                                    </button>
+                                    <input type="file" 
+                                        id="receipt_image" 
+                                        name="receipt_image" 
+                                        accept="image/*" 
+                                        capture="environment"
+                                        class="hidden">
+                                </div>
+                            </div>
+                            <div id="image_preview" class="hidden mt-3 w-full max-w-sm mx-auto">
+                                <div class="relative">
+                                    <img src="" alt="Receipt preview" class="w-full rounded-lg shadow-sm">
+                                    <button type="button" 
+                                        id="retake_button"
+                                        class="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" 
+                    class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add Transaction
+                </button>
+            </form>
+        </div>
+
+        <script>
+        // Focus amount field on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('amount').focus();
+        });
+
+        // Camera and image handling functionality
+        const captureButton = document.getElementById('capture_button');
+        const fileInput = document.getElementById('receipt_image');
+        const preview = document.getElementById('image_preview');
+        const previewImage = preview.querySelector('img');
+        const retakeButton = document.getElementById('retake_button');
+
+        captureButton.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    captureButton.textContent = 'Change Photo';
+                }
+
+                reader.readAsDataURL(file);
+            }
+        });
+
+        retakeButton.addEventListener('click', function() {
+            preview.classList.add('hidden');
+            previewImage.src = '';
+            fileInput.value = '';
+            captureButton.textContent = 'Take Photo';
+        });
+
+        // Drag and drop functionality
+        const dropZone = document.querySelector('.border-dashed');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('border-blue-400', 'bg-blue-50');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            fileInput.files = files;
+            // Trigger change event manually
+            const event = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(event);
+        }
+        </script>
+    </main>
+
+    <?php include 'template/member_footer.php'; ?>
+</body>
+</html>
