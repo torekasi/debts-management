@@ -26,6 +26,15 @@ $stmt = $conn->prepare("
 ");
 $stmt->execute([$_SESSION['user_id']]);
 $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
+
+// Calculate total payments made
+$stmt = $conn->prepare("
+    SELECT SUM(amount) as total_payments 
+    FROM payments 
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+$totalPayments = $stmt->fetch()['total_payments'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -78,7 +87,7 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                     <i class="fas fa-credit-card text-green-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
                     <h3 class="text-xs sm:text-sm font-medium text-green-500">Payments Made</h3>
                 </div>
-                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM0.00</p>
+                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM<?php echo number_format($totalPayments, 2); ?></p>
             </div>
             <div class="bg-purple-50 rounded-lg shadow-md p-2 sm:p-4 text-center">
                 <div class="flex items-center justify-center mb-1">
@@ -149,9 +158,9 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                             id="type" 
                             class="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 appearance-none cursor-pointer bg-white">
                             <option value="Purchase" selected>Purchase</option>
-                            <option value="Cash">Cash Payment</option>
-                            <option value="QR">QR Payment</option>
-                            <option value="Transfer">Bank Transfer</option>
+                            <option value="Cash">Cash</option>
+                            <option value="QR">QR</option>
+                            <option value="Transfer">Transfer</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                             <i class="fas fa-chevron-down text-gray-400"></i>
@@ -163,14 +172,14 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                     <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <div class="relative">
                         <div class="absolute top-3 left-0 pl-3 flex items-start pointer-events-none">
-                            <i class="fas fa-file-alt text-gray-400"></i>
+                            <i class="fas fa-align-left text-gray-400"></i>
                         </div>
                         <textarea 
                             name="description" 
                             id="description" 
                             rows="2"
                             class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition duration-150 resize-none"
-                            placeholder="Enter description"
+                            placeholder="Note here: Sugar, Apple, Fish..."
                             required></textarea>
                     </div>
                 </div>

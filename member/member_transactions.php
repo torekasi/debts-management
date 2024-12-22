@@ -41,6 +41,16 @@ $stmt = $conn->prepare("
 ");
 $stmt->execute([$_SESSION['user_id'], $limit, $offset]);
 $transactions = $stmt->fetchAll();
+
+// Group transactions by month
+$grouped_transactions = [];
+foreach ($transactions as $transaction) {
+    $month = date('F Y', strtotime($transaction['date_transaction']));
+    if (!isset($grouped_transactions[$month])) {
+        $grouped_transactions[$month] = [];
+    }
+    $grouped_transactions[$month][] = $transaction;
+}
 ?>
 
 <!DOCTYPE html>
@@ -52,10 +62,10 @@ $transactions = $stmt->fetchAll();
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100" >
     <?php include 'template/member_header.php'; ?>
 
-    <main class="content-container p-4 md:p-6">
+    <main class="content-container p-4 md:p-6" style="margin: 80px 0;">
         <!-- Summary Cards -->
         <div class="grid grid-cols-2 gap-4 mb-8">
             <!-- Total Spending Card -->
@@ -65,7 +75,7 @@ $transactions = $stmt->fetchAll();
                         <i class="fas fa-wallet text-lg md:text-2xl"></i>
                     </div>
                     <div class="ml-3 md:ml-4">
-                        <p class="text-xs md:text-sm font-medium text-gray-500">Total Spending</p>
+                        <p class="text-xs md:text-sm font-medium text-gray-500">Total Spend</p>
                         <h3 class="text-base md:text-2xl font-bold text-gray-900">RM <?php echo number_format($totalSpending, 2); ?></h3>
                     </div>
                 </div>
@@ -78,7 +88,7 @@ $transactions = $stmt->fetchAll();
                         <i class="fas fa-calendar-alt text-lg md:text-2xl"></i>
                     </div>
                     <div class="ml-3 md:ml-4">
-                        <p class="text-xs md:text-sm font-medium text-gray-500">This Month's Spending</p>
+                        <p class="text-xs md:text-sm font-medium text-gray-500">This Month Spend</p>
                         <h3 class="text-base md:text-2xl font-bold text-gray-900">RM <?php echo number_format($monthSpending, 2); ?></h3>
                     </div>
                 </div>
@@ -86,111 +96,176 @@ $transactions = $stmt->fetchAll();
         </div>
 
         <!-- Transaction History -->
-        <div class="bg-white rounded-lg shadow-sm">
-            <div class="p-4 md:p-6 border-b border-gray-200">
-                <h2 class="text-lg md:text-xl font-bold text-gray-900">Transaction History</h2>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                            <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        <?php foreach ($transactions as $transaction): ?>
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <?php echo date('d M Y H:i', strtotime($transaction['date_transaction'])); ?>
-                            </td>
-                            <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                RM <?php echo number_format($transaction['amount'], 2); ?>
-                            </td>
-                            <td class="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <button onclick="showTransactionDetails(<?php echo htmlspecialchars(json_encode($transaction)); ?>)" 
-                                        class="text-blue-600 hover:text-blue-900">
-                                    <i class="fas fa-info-circle"></i> Details
-                                </button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <?php if ($totalPages > 1): ?>
-            <div class="px-4 md:px-6 py-4 border-t border-gray-200">
-                <div class="flex justify-between items-center">
-                    <div class="text-sm text-gray-700">
-                        Page <?php echo $page; ?> of <?php echo $totalPages; ?>
-                    </div>
-                    <div class="flex space-x-2">
-                        <?php if ($page > 1): ?>
-                            <a href="?page=<?php echo ($page - 1); ?>" 
-                               class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                Previous
-                            </a>
-                        <?php endif; ?>
-                        
-                        <?php if ($page < $totalPages): ?>
-                            <a href="?page=<?php echo ($page + 1); ?>" 
-                               class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                Next
-                            </a>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
+        <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg shadow-md mb-6">
+            <h2 class="text-2xl font-bold">Transaction History</h2>
         </div>
 
+        <?php foreach ($grouped_transactions as $month => $transactions) {
+            $total_month = array_reduce($transactions, function($carry, $transaction) {
+                return $carry + $transaction['amount'];
+            }, 0);
+        ?>
+            <div class="bg-white rounded-lg shadow-sm mb-6">
+                <!-- Month Header -->
+                <div class="bg-gray-50 p-4 border-b border-gray-200 rounded-t-lg">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-gray-900"><?php echo $month; ?></h3>
+                        <span class="text-blue-600 font-semibold">Total: RM <?php echo number_format($total_month, 2); ?></span>
+                    </div>
+                </div>
+
+                <!-- Month's Transactions -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($transactions as $transaction) { ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php echo date('d M Y', strtotime($transaction['date_transaction'])); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium <?php echo $transaction['type'] === 'Payment' ? 'text-green-600' : 'text-red-600'; ?>">
+                                        RM <?php echo number_format($transaction['amount'], 2); ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?php
+                                            // Prepare transaction data
+                                            $modalData = [
+                                                'transaction_id' => $transaction['transaction_id'],
+                                                'date_transaction' => $transaction['date_transaction'],
+                                                'type' => $transaction['type'],
+                                                'amount' => $transaction['amount'],
+                                                'description' => $transaction['description'] ?? '',
+                                                'image_path' => $transaction['image_path'] ?? null
+                                            ];
+                                            $transactionData = htmlspecialchars(json_encode($modalData, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8');
+                                        ?>
+                                        <button onclick='showTransactionDetails(<?php echo $transactionData; ?>)' 
+                                                class="text-blue-600 hover:text-blue-900">
+                                            <i class="fas fa-info-circle"></i> Details
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php } ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php } ?>
+
+        <!-- Pagination -->
+        <?php if ($totalPages > 1): ?>
+        <div class="px-4 md:px-6 py-4 border-t border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-700">
+                    Page <?php echo $page; ?> of <?php echo $totalPages; ?>
+                </div>
+                <div class="flex space-x-2">
+                    <?php if ($page > 1): ?>
+                        <a href="?page=<?php echo ($page - 1); ?>" 
+                           class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Previous
+                        </a>
+                    <?php endif; ?>
+                    
+                    <?php if ($page < $totalPages): ?>
+                        <a href="?page=<?php echo ($page + 1); ?>" 
+                           class="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Next
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Transaction Details Modal -->
-        <div id="transactionModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity hidden z-50">
-            <div class="fixed inset-0 overflow-y-auto">
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-                        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                            <div class="sm:flex sm:items-start">
-                                <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                                    <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4" id="modalTitle">
-                                        Transaction Details
-                                    </h3>
-                                    <div class="mt-2 space-y-3">
-                                        <p class="text-sm text-gray-500">
-                                            <span class="font-medium">Transaction ID:</span>
-                                            <span id="modalTransactionId"></span>
-                                        </p>
-                                        <p class="text-sm text-gray-500">
-                                            <span class="font-medium">Date:</span>
-                                            <span id="modalDate"></span>
-                                        </p>
-                                        <p class="text-sm text-gray-500">
-                                            <span class="font-medium">Type:</span>
-                                            <span id="modalType"></span>
-                                        </p>
-                                        <p class="text-sm text-gray-500">
-                                            <span class="font-medium">Amount:</span>
-                                            <span id="modalAmount"></span>
-                                        </p>
-                                        <p class="text-sm text-gray-500">
-                                            <span class="font-medium">Description:</span>
-                                            <span id="modalDescription"></span>
-                                        </p>
-                                        <div id="modalImageContainer" class="mt-4 hidden">
-                                            <p class="text-sm font-medium text-gray-500 mb-2">Receipt:</p>
-                                            <img id="modalImage" src="" alt="Receipt" class="max-w-full h-auto rounded-lg">
+        <div id="transactionDetailsModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity hidden z-50 overflow-y-auto">
+            <div class="flex min-h-screen items-center justify-center p-4">
+                <div class="relative w-full max-w-2xl my-8">
+                    <div class="relative bg-white rounded-xl shadow-2xl transform transition-all">
+                        <!-- Modal Header -->
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl">
+                            <h3 class="text-xl font-bold text-white">
+                                Transaction Details
+                            </h3>
+                        </div>
+
+                        <!-- Modal Content -->
+                        <div class="px-6 py-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Left Column -->
+                                <div class="space-y-4">
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center mb-3">
+                                            <i class="fas fa-hashtag text-blue-500 mr-2"></i>
+                                            <p class="text-sm font-medium text-gray-500">Transaction ID</p>
                                         </div>
+                                        <p id="modalTransactionId" class="text-base text-gray-900 font-semibold"></p>
+                                    </div>
+
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center mb-3">
+                                            <i class="fas fa-calendar text-blue-500 mr-2"></i>
+                                            <p class="text-sm font-medium text-gray-500">Date & Time</p>
+                                        </div>
+                                        <p id="modalTransactionDate" class="text-base text-gray-900 font-semibold"></p>
+                                    </div>
+
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center mb-3">
+                                            <i class="fas fa-tag text-blue-500 mr-2"></i>
+                                            <p class="text-sm font-medium text-gray-500">Payment Type</p>
+                                        </div>
+                                        <p id="modalTransactionType" class="text-base text-gray-900 font-semibold"></p>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column -->
+                                <div class="space-y-4">
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center mb-3">
+                                            <i class="fas fa-money-bill text-blue-500 mr-2"></i>
+                                            <p class="text-sm font-medium text-gray-500">Amount</p>
+                                        </div>
+                                        <p id="modalTransactionAmount" class="text-xl text-blue-600 font-bold"></p>
+                                    </div>
+
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center mb-3">
+                                            <i class="fas fa-align-left text-blue-500 mr-2"></i>
+                                            <p class="text-sm font-medium text-gray-500">Description</p>
+                                        </div>
+                                        <p id="modalTransactionDescription" class="text-base text-gray-900"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Receipt Image Section -->
+                            <div id="modalTransactionImage" class="mt-6 hidden">
+                                <div class="border-t border-gray-200 pt-6">
+                                    <div class="flex items-center mb-4">
+                                        <i class="fas fa-receipt text-blue-500 mr-2"></i>
+                                        <h4 class="text-lg font-semibold text-gray-900">Receipt</h4>
+                                    </div>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <img id="modalReceiptImage" src="" alt="Receipt" class="max-w-full h-auto rounded-lg shadow-sm mx-auto">
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                            <button type="button" onclick="hideTransactionDetails()" 
-                                    class="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+
+                        <!-- Modal Footer -->
+                        <div class="px-6 py-4 bg-gray-50 rounded-b-xl">
+                            <button type="button" onclick="hideTransactionModal()" 
+                                    class="w-full inline-flex justify-center items-center px-4 py-3 border border-red-300 rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
+                                <i class="fas fa-times mr-2"></i>
                                 Close
                             </button>
                         </div>
@@ -198,50 +273,66 @@ $transactions = $stmt->fetchAll();
                 </div>
             </div>
         </div>
+
+        <script>
+            function showTransactionDetails(transaction) {
+                try {
+                    // Update modal content
+                    document.getElementById('modalTransactionId').textContent = transaction.transaction_id || '';
+                    document.getElementById('modalTransactionDate').textContent = transaction.date_transaction ? 
+                        new Date(transaction.date_transaction).toLocaleString('en-MY', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                        }) : '';
+                    document.getElementById('modalTransactionType').textContent = transaction.type || '';
+                    document.getElementById('modalTransactionAmount').textContent = transaction.amount ? 
+                        'RM ' + parseFloat(transaction.amount).toFixed(2) : '';
+                    document.getElementById('modalTransactionDescription').textContent = transaction.description || 'No description provided';
+
+                    // Handle receipt image
+                    const imageContainer = document.getElementById('modalTransactionImage');
+                    const modalImage = document.getElementById('modalReceiptImage');
+                    
+                    if (transaction.image_path) {
+                        modalImage.src = '../' + transaction.image_path;
+                        imageContainer.classList.remove('hidden');
+                    } else {
+                        imageContainer.classList.add('hidden');
+                    }
+
+                    // Show modal
+                    document.getElementById('transactionDetailsModal').classList.remove('hidden');
+                    document.body.style.overflow = 'hidden';
+                } catch (error) {
+                    console.error('Error showing transaction details:', error);
+                }
+            }
+
+            function hideTransactionModal() {
+                document.getElementById('transactionDetailsModal').classList.add('hidden');
+                document.body.style.overflow = 'auto';
+            }
+
+            // Close modal when clicking outside
+            document.getElementById('transactionDetailsModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    hideTransactionModal();
+                }
+            });
+
+            // Close modal on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    hideTransactionModal();
+                }
+            });
+        </script>
     </main>
 
     <?php include 'template/member_footer.php'; ?>
-
-    <script>
-        function showTransactionDetails(transaction) {
-            document.getElementById('modalTransactionId').textContent = transaction.transaction_id;
-            document.getElementById('modalDate').textContent = new Date(transaction.date_transaction).toLocaleString();
-            document.getElementById('modalType').textContent = transaction.type;
-            document.getElementById('modalAmount').textContent = 'RM ' + parseFloat(transaction.amount).toFixed(2);
-            document.getElementById('modalDescription').textContent = transaction.description;
-
-            const imageContainer = document.getElementById('modalImageContainer');
-            const modalImage = document.getElementById('modalImage');
-            
-            if (transaction.image_path) {
-                modalImage.src = '../' + transaction.image_path;
-                imageContainer.classList.remove('hidden');
-            } else {
-                imageContainer.classList.add('hidden');
-            }
-
-            document.getElementById('transactionModal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function hideTransactionDetails() {
-            document.getElementById('transactionModal').classList.add('hidden');
-            document.body.style.overflow = 'auto';
-        }
-
-        // Close modal when clicking outside
-        document.getElementById('transactionModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                hideTransactionDetails();
-            }
-        });
-
-        // Close modal on escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                hideTransactionDetails();
-            }
-        });
-    </script>
 </body>
 </html>
