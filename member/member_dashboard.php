@@ -229,16 +229,32 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
             </form>
 
             <!-- Success Toast Notification -->
-            <div id="successToast" class="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 flex items-center">
-                <i class="fas fa-check-circle mr-2"></i>
-                <span>Transaction added successfully!</span>
+            <div id="successToast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 max-w-sm w-full scale-0 opacity-0 transition-all duration-300 z-50">
+                <div class="text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Transaction Successful!</h3>
+                    <p class="text-sm text-gray-500">Your transaction has been successfully recorded.</p>
+                    <div class="mt-4">
+                        <button type="button" onclick="hideSuccessToast()" class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm">
+                            Close
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            <!-- Overlay Background -->
+            <div id="overlay" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity opacity-0 pointer-events-none z-40"></div>
 
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
                     const form = document.getElementById('transactionForm');
                     const submitButton = document.getElementById('submitButton');
                     const successToast = document.getElementById('successToast');
+                    const overlay = document.getElementById('overlay');
                     let isSubmitting = false;
 
                     function showLoadingState() {
@@ -254,10 +270,23 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                     }
 
                     function showSuccessToast() {
-                        successToast.classList.remove('translate-y-full', 'opacity-0');
+                        // Show overlay
+                        overlay.classList.remove('opacity-0', 'pointer-events-none');
+                        // Show toast with scale animation
+                        successToast.classList.remove('scale-0', 'opacity-0');
+                        successToast.classList.add('scale-100', 'opacity-100');
+                    }
+
+                    window.hideSuccessToast = function() {
+                        // Hide overlay
+                        overlay.classList.add('opacity-0', 'pointer-events-none');
+                        // Hide toast with scale animation
+                        successToast.classList.remove('scale-100', 'opacity-100');
+                        successToast.classList.add('scale-0', 'opacity-0');
+                        // Reload page after animation
                         setTimeout(() => {
-                            successToast.classList.add('translate-y-full', 'opacity-0');
-                        }, 3000);
+                            window.location.reload();
+                        }, 300);
                     }
 
                     form.addEventListener('submit', async function(e) {
@@ -274,21 +303,17 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                                 body: formData
                             });
 
-                            const result = await response.text();
+                            const result = await response.json();
                             
-                            if (result.includes('success')) {
+                            if (result.status === 'success') {
                                 showSuccessToast();
                                 form.reset();
-                                // Refresh the page after 1 second
-                                setTimeout(() => {
-                                    window.location.reload();
-                                }, 1000);
                             } else {
-                                throw new Error('Transaction failed');
+                                throw new Error(result.message || 'Transaction failed');
                             }
                         } catch (error) {
                             console.error('Error:', error);
-                            alert('Failed to add transaction. Please try again.');
+                            alert(error.message || 'Failed to add transaction. Please try again.');
                         } finally {
                             hideLoadingState();
                             isSubmitting = false;
