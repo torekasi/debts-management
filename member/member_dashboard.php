@@ -61,6 +61,9 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
     <?php include 'template/member_header.php'; ?>
 
     <main class="content-container">
+
+
+
         <!-- Financial Overview Cards -->
         <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
             <div class="bg-white rounded-lg shadow-md p-2 sm:p-4 text-center">
@@ -90,9 +93,36 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex items-center mb-6">
                 <i class="fas fa-cart-plus text-blue-500 text-2xl mr-3"></i>
-                <h2 class="text-xl font-bold text-gray-800">Add Shopping</h2>
+                <h2 class="text-xl font-bold text-gray-800">Add Shopping for <?php echo htmlspecialchars($user['full_name']); ?> </h2>
             </div>
             <form action="add_transaction.php" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="relative">
+                        <label for="transaction_id" class="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-hashtag text-gray-400 text-sm"></i>
+                            </div>
+                            <input type="text" name="transaction_id" id="transaction_id" 
+                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-gray-100 text-xs"
+                                value="<?php echo 'TRX'.date('Ymd-His').'-'.str_pad(rand(1,999),3,'0',STR_PAD_LEFT); ?>"
+                                readonly>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <label for="transaction_date" class="block text-sm font-medium text-gray-700 mb-1">Transaction Date</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-calendar text-gray-400 text-sm"></i>
+                            </div>
+                            <input type="datetime-local" name="transaction_date" id="transaction_date" 
+                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-xs"
+                                value="<?php echo date('Y-m-d\TH:i'); ?>"
+                                required>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="relative">
                     <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount (RM)</label>
                     <div class="relative">

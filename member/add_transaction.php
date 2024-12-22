@@ -4,12 +4,17 @@ require_once '../includes/session.php';
 requireUser();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $description = $_POST['description'] ?? '';
-    $amount = $_POST['amount'] ?? 0;
-    $type = $_POST['type'] ?? 'Purchase';
-    $image_url = '';
+    $amount = $_POST['amount'];
+    $description = $_POST['description'];
+    $type = $_POST['type'];
+    $transaction_id = $_POST['transaction_id'];
+    $transaction_date = $_POST['transaction_date'];
 
-    // Handle file upload
+    // Format the datetime for MySQL
+    $formatted_date = date('Y-m-d H:i:s', strtotime($transaction_date));
+
+    // Handle file upload if present
+    $image_url = '';
     if (isset($_FILES['receipt_image']) && $_FILES['receipt_image']['error'] === UPLOAD_ERR_OK) {
         $upload_dir = '../uploads/receipts/';
         
@@ -18,11 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mkdir($upload_dir, 0777, true);
         }
 
-        // Generate unique filename
-        $file_extension = strtolower(pathinfo($_FILES['receipt_image']['name'], PATHINFO_EXTENSION));
-        $unique_filename = uniqid('receipt_') . '.' . $file_extension;
-        $upload_path = $upload_dir . $unique_filename;
-
+        $temp_name = $_FILES['receipt_image']['tmp_name'];
+        $original_name = $_FILES['receipt_image']['name'];
+        $file_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+        
+        // Generate unique filename using transaction_id
+        $new_filename = $transaction_id . '.' . $file_extension;
+        $destination = $upload_dir . $new_filename;
+        
         // Validate file type
         $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
         if (!in_array($file_extension, $allowed_types)) {
@@ -38,10 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Move uploaded file
-        if (move_uploaded_file($_FILES['receipt_image']['tmp_name'], $upload_path)) {
+        if (move_uploaded_file($temp_name, $destination)) {
             // Generate full URL for the image
-            $image_url = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/uploads/receipts/' . $unique_filename;
+            $image_url = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/uploads/receipts/' . $new_filename;
         } else {
             $_SESSION['error'] = "Failed to upload file.";
             header('Location: member_dashboard.php');
@@ -51,17 +58,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         // Insert transaction into database
-        $stmt = $conn->prepare("
-            INSERT INTO transactions (user_id, description, amount, type, receipt_url, created_at) 
-            VALUES (?, ?, ?, ?, ?, NOW())
-        ");
+        $sql = "INSERT INTO transactions (transaction_id, amount, description, type, receipt_url, transaction_date, user_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
         
+        $stmt = $conn->prepare($sql);
         $stmt->execute([
-            $_SESSION['user_id'],
-            $description,
+            $transaction_id,
             $amount,
+            $description,
             $type,
-            $image_url
+            $image_url,
+            $formatted_date,
+            $_SESSION['user_id']
         ]);
 
         $_SESSION['success'] = "Transaction added successfully!";
