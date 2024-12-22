@@ -95,7 +95,7 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                 <i class="fas fa-cart-plus text-blue-500 text-2xl mr-3"></i>
                 <h2 class="text-xl font-bold text-gray-800">Add Shopping for <?php echo htmlspecialchars($user['full_name']); ?> </h2>
             </div>
-            <form action="add_transaction.php" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <form id="transactionForm" action="add_transaction.php" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="relative">
                         <label for="transaction_id" class="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
@@ -210,95 +210,175 @@ $totalDebt = $stmt->fetch()['total_debt'] ?? 0;
                     </div>
                 </div>
 
-                <button type="submit" 
-                    class="w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
-                    <i class="fas fa-plus mr-2"></i>
-                    Add Transaction
-                </button>
+                <div class="flex justify-end">
+                    <button type="submit" 
+                        id="submitButton"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span class="inline-flex items-center">
+                            <span class="normal-state">Add Transaction</span>
+                            <span class="loading-state hidden">
+                                <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Processing...
+                            </span>
+                        </span>
+                    </button>
+                </div>
             </form>
-        </div>
 
-        <script>
-        // Focus amount field on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('amount').focus();
-        });
+            <!-- Success Toast Notification -->
+            <div id="successToast" class="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span>Transaction added successfully!</span>
+            </div>
 
-        // Camera and image handling functionality
-        const captureButton = document.getElementById('capture_button');
-        const fileInput = document.getElementById('receipt_image');
-        const preview = document.getElementById('image_preview');
-        const previewImage = preview.querySelector('img');
-        const retakeButton = document.getElementById('retake_button');
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const form = document.getElementById('transactionForm');
+                    const submitButton = document.getElementById('submitButton');
+                    const successToast = document.getElementById('successToast');
+                    let isSubmitting = false;
 
-        captureButton.addEventListener('click', function() {
-            fileInput.click();
-        });
+                    function showLoadingState() {
+                        submitButton.disabled = true;
+                        submitButton.querySelector('.normal-state').classList.add('hidden');
+                        submitButton.querySelector('.loading-state').classList.remove('hidden');
+                    }
 
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
+                    function hideLoadingState() {
+                        submitButton.disabled = false;
+                        submitButton.querySelector('.normal-state').classList.remove('hidden');
+                        submitButton.querySelector('.loading-state').classList.add('hidden');
+                    }
 
-                reader.onload = function(e) {
-                    previewImage.src = e.target.result;
-                    preview.classList.remove('hidden');
-                    captureButton.textContent = 'Change Photo';
+                    function showSuccessToast() {
+                        successToast.classList.remove('translate-y-full', 'opacity-0');
+                        setTimeout(() => {
+                            successToast.classList.add('translate-y-full', 'opacity-0');
+                        }, 3000);
+                    }
+
+                    form.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        
+                        if (isSubmitting) return;
+                        isSubmitting = true;
+                        showLoadingState();
+
+                        try {
+                            const formData = new FormData(form);
+                            const response = await fetch('add_transaction.php', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            const result = await response.text();
+                            
+                            if (result.includes('success')) {
+                                showSuccessToast();
+                                form.reset();
+                                // Refresh the page after 1 second
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1000);
+                            } else {
+                                throw new Error('Transaction failed');
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            alert('Failed to add transaction. Please try again.');
+                        } finally {
+                            hideLoadingState();
+                            isSubmitting = false;
+                        }
+                    });
+                });
+            </script>
+
+            <script>
+                // Focus amount field on page load
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.getElementById('amount').focus();
+                });
+
+                // Camera and image handling functionality
+                const captureButton = document.getElementById('capture_button');
+                const fileInput = document.getElementById('receipt_image');
+                const preview = document.getElementById('image_preview');
+                const previewImage = preview.querySelector('img');
+                const retakeButton = document.getElementById('retake_button');
+
+                captureButton.addEventListener('click', function() {
+                    fileInput.click();
+                });
+
+                fileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+
+                        reader.onload = function(e) {
+                            previewImage.src = e.target.result;
+                            preview.classList.remove('hidden');
+                            captureButton.textContent = 'Change Photo';
+                        }
+
+                        reader.readAsDataURL(file);
+                    }
+                });
+
+                retakeButton.addEventListener('click', function() {
+                    preview.classList.add('hidden');
+                    previewImage.src = '';
+                    fileInput.value = '';
+                    captureButton.textContent = 'Take Photo';
+                });
+
+                // Drag and drop functionality
+                const dropZone = document.querySelector('.border-dashed');
+                
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, preventDefaults, false);
+                });
+
+                function preventDefaults (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
 
-                reader.readAsDataURL(file);
-            }
-        });
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, highlight, false);
+                });
 
-        retakeButton.addEventListener('click', function() {
-            preview.classList.add('hidden');
-            previewImage.src = '';
-            fileInput.value = '';
-            captureButton.textContent = 'Take Photo';
-        });
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropZone.addEventListener(eventName, unhighlight, false);
+                });
 
-        // Drag and drop functionality
-        const dropZone = document.querySelector('.border-dashed');
-        
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
+                function highlight(e) {
+                    dropZone.classList.add('border-blue-400', 'bg-blue-50');
+                }
 
-        function preventDefaults (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+                function unhighlight(e) {
+                    dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+                }
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, highlight, false);
-        });
+                dropZone.addEventListener('drop', handleDrop, false);
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, unhighlight, false);
-        });
+                function handleDrop(e) {
+                    const dt = e.dataTransfer;
+                    const files = dt.files;
+                    
+                    fileInput.files = files;
+                    // Trigger change event manually
+                    const event = new Event('change', { bubbles: true });
+                    fileInput.dispatchEvent(event);
+                }
+            </script>
+        </div>
 
-        function highlight(e) {
-            dropZone.classList.add('border-blue-400', 'bg-blue-50');
-        }
-
-        function unhighlight(e) {
-            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
-        }
-
-        dropZone.addEventListener('drop', handleDrop, false);
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            
-            fileInput.files = files;
-            // Trigger change event manually
-            const event = new Event('change', { bubbles: true });
-            fileInput.dispatchEvent(event);
-        }
-        </script>
+        <?php include 'template/member_footer.php'; ?>
     </main>
-
-    <?php include 'template/member_footer.php'; ?>
 </body>
 </html>
