@@ -18,8 +18,8 @@ $offset_payments = ($current_page_payments - 1) * $items_per_page;
 try {
     // For Aiven MySQL, we need to use SSL connection
     $options = array(
-        PDO::MYSQL_ATTR_SSL_CA => __DIR__ . '/../config/ca.pem',  // Path to CA certificate
-        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false
+        // PDO::MYSQL_ATTR_SSL_CA => __DIR__ . '/../config/ca.pem',  // Path to CA certificate
+        // PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false
     );
 
     $dsn = sprintf(

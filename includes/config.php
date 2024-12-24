@@ -12,21 +12,25 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Database Configuration
-define('DB_HOST', 'mysql-220bd3b5-nefizon.j.aivencloud.com');
-define('DB_USER', 'avnadmin');
-define('DB_PASS', 'AVNS_thBeU0OT2NZXwAVLoDM');
-define('DB_NAME', 'defaultdb');
-define('DB_PORT', '23853');
+
+// DB_NAME: Your cPanel username followed by an underscore and the database name
+define('DB_HOST', 'localhost'); // e.g., 'localhost' or your specific database host
+define('DB_USER', 'your_cpanel_username_dbuser'); // e.g., 'cpaneluser_dbuser'
+define('DB_PASS', 'your_db_password'); // e.g., 'yourpassword'
+define('DB_NAME', 'your_cpanel_username_dbname'); // e.g., 'cpaneluser_dbname'
+define('DB_PORT', '3306'); // Default MySQL port
 
 // Establish database connection using PDO
 try {
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $conn = new PDO($dsn, DB_USER, DB_PASS, [
+    $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
+        PDO::MYSQL_ATTR_SSL_ENABLE => false
+    ];
+    $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
 } catch (PDOException $e) {
     die("Database connection failed: " . $e->getMessage());
 }

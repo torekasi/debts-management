@@ -18,7 +18,7 @@
             </div>
             <span class="text-xs">Payment</span>
         </a>
-        <a href="#" class="flex flex-col items-center px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+        <a href="member_setting.php" class="flex flex-col items-center px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
             <div class="w-6 h-6 flex items-center justify-center mb-1">
                 <i class="fas fa-cog text-xl drop-shadow-md"></i>
             </div>
