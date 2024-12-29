@@ -205,17 +205,24 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                 </div>
 
                 <div class="relative">
-                    <label for="receipt_image" class="block text-sm font-medium text-gray-700 mb-1">Receipt Image</label>
+                    <label for="receipt_image" class="block text-sm font-medium text-gray-700 mb-1">Take Photo</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-image text-gray-400"></i>
+                            <i class="fas fa-camera text-gray-400"></i>
                         </div>
                         <input type="file" 
                             name="receipt_image" 
                             id="receipt_image" 
-                            accept="image/jpeg,image/png"
+                            accept="image/*"
+                            capture="environment"
                             class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-xs"
                             onchange="previewImage(this)">
+                        <button type="button" 
+                            onclick="document.getElementById('receipt_image').click()"
+                            class="absolute inset-y-0 right-0 px-3 flex items-center bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <i class="fas fa-camera mr-1"></i>
+                            Capture
+                        </button>
                     </div>
                     <div id="imagePreview" class="mt-2 hidden">
                         <img id="preview" src="#" alt="Preview" class="max-w-full h-auto rounded-lg shadow-sm">
@@ -223,6 +230,12 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                             <span id="imageDimensions"></span> • 
                             <span id="imageSize"></span>
                         </div>
+                        <button type="button" 
+                            onclick="retakePhoto()"
+                            class="mt-2 inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-redo mr-1"></i>
+                            Retake Photo
+                        </button>
                     </div>
                 </div>
 
@@ -316,6 +329,15 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                         dimensionsSpan.textContent = '';
                         sizeSpan.textContent = '';
                     }
+                }
+
+                function retakePhoto() {
+                    document.getElementById('receipt_image').value = '';
+                    document.getElementById('imagePreview').classList.add('hidden');
+                    document.getElementById('preview').src = '#';
+                    document.getElementById('imageDimensions').textContent = '';
+                    document.getElementById('imageSize').textContent = '';
+                    document.getElementById('receipt_image').click();
                 }
 
                 // Add form submit handler to show loading state
