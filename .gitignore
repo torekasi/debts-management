@@ -1,5 +1,6 @@
 # Configuration files
 /config/config.php
+/includes/config.php
 
 # IDE files
 .idea/
