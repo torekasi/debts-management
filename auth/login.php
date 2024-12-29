@@ -61,6 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && password_verify($password, $user['password'])) {
+                // Check account status
+                if ($user['status'] === 'inactive') {
+                    $_SESSION['temp_user'] = $user;
+                    header('Location: verify_profile.php');
+                    exit();
+                }
+
                 // Set session variables
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['member_id'] = $user['member_id'];

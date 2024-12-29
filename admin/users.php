@@ -316,6 +316,9 @@ try {
                                     Name
                                 </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Outstanding Amount
                                 </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -337,6 +340,9 @@ try {
                                            class="text-blue-600 hover:text-blue-800 font-bold hover:underline transition duration-150 ease-in-out">
                                             <?php echo htmlspecialchars($user['full_name'] ?? ''); ?>
                                         </a>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <?php echo htmlspecialchars($user['email'] ?? ''); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                                         <span class="<?php echo $user['total_transaction'] - $user['total_payment'] > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'; ?>">
@@ -535,5 +541,7 @@ try {
             <?php endif; ?>
         });
     </script>
+</body>
+</html>
 </body>
 </html>
