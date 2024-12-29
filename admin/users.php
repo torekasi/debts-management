@@ -302,16 +302,16 @@ try {
                             <?php foreach ($admin_users as $admin): ?>
                                 <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        <?php echo htmlspecialchars($admin['member_id']); ?>
+                                        <?php echo htmlspecialchars($admin['member_id'] ?? ''); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php echo htmlspecialchars($admin['full_name']); ?>
+                                        <?php echo htmlspecialchars($admin['full_name'] ?? ''); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php echo htmlspecialchars($admin['email']); ?>
+                                        <?php echo htmlspecialchars($admin['email'] ?? ''); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php echo htmlspecialchars($admin['phone']); ?>
+                                        <?php echo htmlspecialchars($admin['phone'] ?? ''); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <?php echo date('Y-m-d H:i:s', strtotime($admin['created_at'])); ?>
@@ -389,12 +389,12 @@ try {
                             <?php foreach ($users as $user): ?>
                                 <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        <?php echo htmlspecialchars($user['member_id']); ?>
+                                        <?php echo htmlspecialchars($user['member_id'] ?? ''); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <a href="user_dashboard.php?user_id=<?php echo $user['id']; ?>" 
                                            class="text-blue-600 hover:text-blue-800 font-bold hover:underline transition duration-150 ease-in-out">
-                                            <?php echo htmlspecialchars($user['full_name']); ?>
+                                            <?php echo htmlspecialchars($user['full_name'] ?? ''); ?>
                                         </a>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">

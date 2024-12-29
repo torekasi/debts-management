@@ -18,4 +18,11 @@ function requireAdmin() {
 function isAdmin() {
     return isset($_SESSION['user_id']) && $_SESSION['role'] === 'admin';
 }
+
+function requireUser() {
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: ../auth/login.php");
+        exit;
+    }
+}
 ?>

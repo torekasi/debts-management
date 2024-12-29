@@ -58,9 +58,16 @@ $stmt->execute([$user_id, $current_month]);
 $total_records = $stmt->fetchColumn();
 $total_pages = ceil($total_records / $items_per_page);
 
+// Initialize payments array
+$payments = [];
+
+// Get payments for this user
+$stmt = $conn->prepare("SELECT * FROM payments WHERE user_id = ? ORDER BY payment_date DESC");
+$stmt->execute([$user_id]);
+$payments = $stmt->fetchAll();
+
 include 'template/header.php';
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -217,14 +224,12 @@ include 'template/header.php';
                                     Previous
                                 </a>
                                 <?php endif; ?>
-
                                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
                                 <a href="?page=<?php echo $i; ?>&user_id=<?php echo $user_id; ?>" 
                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium <?php echo $current_page == $i ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-50'; ?>">
                                     <?php echo $i; ?>
                                 </a>
                                 <?php endfor; ?>
-
                                 <?php if ($current_page < $total_pages): ?>
                                 <a href="?page=<?php echo ($current_page + 1); ?>&user_id=<?php echo $user_id; ?>" 
                                    class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
