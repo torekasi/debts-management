@@ -44,6 +44,7 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
     <title>Member Dashboard - <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
             padding-top: 4rem;
@@ -74,27 +75,43 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
 
 
         <!-- Financial Overview Cards -->
-        <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
-            <div class="bg-white rounded-lg shadow-md p-2 sm:p-4 text-center">
-                <div class="flex items-center justify-center mb-1">
-                    <i class="fas fa-shopping-cart text-blue-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
-                    <h3 class="text-xs sm:text-sm font-medium text-blue-500"> Shoppings</h3>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-shopping-cart text-blue-500 mr-2 text-base"></i>
+                    <h3 class="text-xs font-medium text-blue-500">Total Shopping</h3>
                 </div>
-                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM<?php echo number_format($totalDebt, 2); ?></p>
+                <p class="text-xl font-bold text-gray-900">RM<?php echo number_format($totalDebt, 2); ?></p>
             </div>
-            <div class="bg-white rounded-lg shadow-md p-2 sm:p-4 text-center">
-                <div class="flex items-center justify-center mb-1">
-                    <i class="fas fa-credit-card text-green-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
-                    <h3 class="text-xs sm:text-sm font-medium text-green-500">Payments Made</h3>
+            <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-credit-card text-green-500 mr-2 text-base"></i>
+                    <h3 class="text-xs font-medium text-green-500">Payments Made</h3>
                 </div>
-                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM<?php echo number_format($totalPayments, 2); ?></p>
+                <p class="text-xl font-bold text-gray-900">RM<?php echo number_format($totalPayments, 2); ?></p>
             </div>
-            <div class="bg-purple-50 rounded-lg shadow-md p-2 sm:p-4 text-center">
-                <div class="flex items-center justify-center mb-1">
-                    <i class="fas fa-balance-scale text-purple-500 mr-1 sm:mr-2 text-xs sm:text-base"></i>
-                    <h3 class="text-xs sm:text-sm font-medium text-purple-500">Balance to Pay</h3>
+        </div>
+
+        <!-- Outstanding Balance Card -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="bg-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-100 rounded-full p-2 mr-3">
+                        <i class="fas fa-balance-scale text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500 text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-900">Outstanding Balance</h3>
+                        <p class="text-xs text-gray-500">Current balance to be paid</p>
+                    </div>
                 </div>
-                <p class="text-lg sm:text-3xl font-bold text-gray-900 text-center">RM<?php echo number_format($totalDebt, 2); ?></p>
+                <div class="text-right">
+                    <p class="text-xl font-bold text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500">
+                        RM<?php echo number_format($totalDebt - $totalPayments, 2); ?>
+                    </p>
+                    <p class="text-xs text-gray-500">
+                        <?php echo ($totalDebt - $totalPayments) > 0 ? 'Due Balance' : 'Fully Paid'; ?>
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -126,7 +143,10 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                             </div>
                             <input type="datetime-local" name="transaction_date" id="transaction_date" 
                                 class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-xs"
-                                value="<?php echo date('Y-m-d\TH:i'); ?>"
+                                value="<?php 
+                                    $date = new DateTime('now', new DateTimeZone('Asia/Kuala_Lumpur'));
+                                    echo $date->format('Y-m-d\TH:i');
+                                ?>"
                                 required>
                         </div>
                     </div>
@@ -142,6 +162,7 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                             step="0.01" 
                             name="amount" 
                             id="amount" 
+                            autocomplete="off"
                             class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition duration-150"
                             placeholder="0.00"
                             required>
@@ -180,7 +201,7 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                             rows="2"
                             class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 transition duration-150 resize-none"
                             placeholder="Note here: Sugar, Apple, Fish..."
-                            required></textarea>
+                            required>-</textarea>
                     </div>
                 </div>
 
@@ -315,8 +336,14 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                             const result = await response.json();
                             
                             if (result.status === 'success') {
-                                showSuccessToast();
-                                form.reset();
+                                Swal.fire({
+                                    title: 'Success!',
+                                    text: result.message,
+                                    icon: 'success',
+                                    confirmButtonText: 'OK'
+                                }).then((result) => {
+                                    window.location.href = 'member_transactions.php';
+                                });
                             } else {
                                 throw new Error(result.message || 'Transaction failed');
                             }

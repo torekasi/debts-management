@@ -10,10 +10,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = $_POST['phone'];
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $status = $_POST['status'];
+    $role = $_POST['role'];
 
     try {
-        $stmt = $conn->prepare("INSERT INTO users (member_id, full_name, email, phone, password, status, role) VALUES (?, ?, ?, ?, ?, ?, 'user')");
-        $stmt->execute([$member_id, $full_name, $email, $phone, $password, $status]);
+        $stmt = $conn->prepare("INSERT INTO users (member_id, full_name, email, phone, password, status, role) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$member_id, $full_name, $email, $phone, $password, $status, $role]);
         
         $_SESSION['success'] = "User added successfully!";
         header('Location: users.php');
@@ -168,6 +169,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400">
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+
+                        <!-- Role -->
+                        <div>
+                            <label for="role" class="block text-sm font-medium text-gray-700 mb-2">
+                                Role
+                            </label>
+                            <select name="role" 
+                                    id="role" 
+                                    required
+                                    class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400">
+                                <option value="user" selected>User</option>
+                                <option value="admin">Admin</option>
                             </select>
                         </div>
                     </div>

@@ -1,0 +1,8 @@
+[24-Dec-2024 17:51:22 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "APP_NAME" in /home2/rc126893/public_html/car.frenflo.com/member/member_transactions.php:6
+Stack trace:
+#0 {main}
+  thrown in /home2/rc126893/public_html/car.frenflo.com/member/member_transactions.php on line 6
+[24-Dec-2024 17:51:28 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "APP_NAME" in /home2/rc126893/public_html/car.frenflo.com/member/member_transactions.php:6
+Stack trace:
+#0 {main}
+  thrown in /home2/rc126893/public_html/car.frenflo.com/member/member_transactions.php on line 6

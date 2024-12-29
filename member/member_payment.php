@@ -20,6 +20,19 @@ $stmt->execute([$_SESSION['user_id']]);
 $totalPayments = $stmt->fetchColumn();
 $totalPages = ceil($totalPayments / $limit);
 
+// Get total payment amount
+$stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) as total_payment FROM payments WHERE user_id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$totalPaymentAmount = $stmt->fetchColumn();
+
+// Get total transaction amount
+$stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) as total_transaction FROM transactions WHERE user_id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$totalTransactionAmount = $stmt->fetchColumn();
+
+// Calculate balance
+$balance = $totalTransactionAmount - $totalPaymentAmount;
+
 // Get payments with pagination
 $stmt = $conn->prepare("
     SELECT * FROM payments 
@@ -46,54 +59,88 @@ foreach ($payments as $payment) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment History - Member Dashboard</title>
+    <title>Member Dashboard - <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            padding-top: 4rem;
+            padding-bottom: 4rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .content-container {
+            flex: 1;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 1rem;
+            width: 100%;
+        }
+        @media (max-width: 768px) {
+            .content-container {
+                max-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <?php include 'template/member_header.php'; ?>
 
-    <main class="content-container p-4 md:p-6" style="margin: 80px 0;">
+    <main class="content-container">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-2 gap-4 mb-8">
-            <!-- Total Payments Card -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <!-- Total Transactions Card -->
             <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
                 <div class="flex items-center">
-                    <div class="p-2 md:p-3 rounded-full bg-green-100 text-green-500">
-                        <i class="fas fa-money-bill-wave text-lg md:text-2xl"></i>
+                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                     </div>
-                    <div class="ml-3 md:ml-4">
-                        <p class="text-xs md:text-sm font-medium text-gray-500">Total Payments</p>
-                        <?php
-                        $stmt = $conn->prepare("SELECT SUM(amount) FROM payments WHERE user_id = ?");
-                        $stmt->execute([$_SESSION['user_id']]);
-                        $totalAmount = $stmt->fetchColumn() ?? 0;
-                        ?>
-                        <h3 class="text-base md:text-2xl font-bold text-gray-900">RM<?php echo number_format($totalAmount, 2); ?></h3>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
+                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($totalTransactionAmount, 2); ?></dd>
+                        </dl>
                     </div>
                 </div>
             </div>
 
-            <!-- Current Month Payments Card -->
+            <!-- Total Payments Card -->
             <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
                 <div class="flex items-center">
-                    <div class="p-2 md:p-3 rounded-full bg-blue-100 text-blue-500">
-                        <i class="fas fa-calendar text-lg md:text-2xl"></i>
+                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                     </div>
-                    <div class="ml-3 md:ml-4">
-                        <p class="text-xs md:text-sm font-medium text-gray-500">This Month Payment</p>
-                        <?php
-                        $stmt = $conn->prepare("
-                            SELECT SUM(amount) 
-                            FROM payments 
-                            WHERE user_id = ? 
-                            AND MONTH(payment_date) = MONTH(CURRENT_DATE())
-                            AND YEAR(payment_date) = YEAR(CURRENT_DATE())
-                        ");
-                        $stmt->execute([$_SESSION['user_id']]);
-                        $monthlyAmount = $stmt->fetchColumn() ?? 0;
-                        ?>
-                        <h3 class="text-base md:text-2xl font-bold text-gray-900">RM<?php echo number_format($monthlyAmount, 2); ?></h3>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
+                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($totalPaymentAmount, 2); ?></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balance Card -->
+            <div class="bg-green-50 rounded-lg shadow-sm p-4 md:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Balance</dt>
+                            <dd class="text-lg font-semibold text-<?php echo $balance > 0 ? 'red' : 'green'; ?>-600">
+                                RM <?php echo number_format(abs($balance), 2); ?>
+                                <span class="text-sm font-normal"><?php echo $balance > 0 ? '(Outstanding)' : '(Paid)'; ?></span>
+                            </dd>
+                        </dl>
                     </div>
                 </div>
             </div>
@@ -204,19 +251,22 @@ foreach ($payments as $payment) {
 
                         <!-- Modal Content -->
                         <div class="px-6 py-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Left Column -->
-                                <div class="space-y-4">
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <div class="flex items-center mb-3">
+                            <div class="space-y-4">
+                                <!-- Reference Number -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
                                             <i class="fas fa-hashtag text-green-500 mr-2"></i>
                                             <p class="text-sm font-medium text-gray-500">Reference Number</p>
                                         </div>
                                         <p id="modalReferenceNumber" class="text-base text-gray-900 font-semibold"></p>
                                     </div>
+                                </div>
 
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <div class="flex items-center mb-3">
+                                <!-- Payment Date -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
                                             <i class="fas fa-calendar text-green-500 mr-2"></i>
                                             <p class="text-sm font-medium text-gray-500">Payment Date</p>
                                         </div>
@@ -224,43 +274,42 @@ foreach ($payments as $payment) {
                                     </div>
                                 </div>
 
-                                <!-- Right Column -->
-                                <div class="space-y-4">
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <div class="flex items-center mb-3">
+                                <!-- Amount -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
                                             <i class="fas fa-money-bill text-green-500 mr-2"></i>
                                             <p class="text-sm font-medium text-gray-500">Amount</p>
                                         </div>
                                         <p id="modalPaymentAmount" class="text-xl text-green-600 font-bold"></p>
                                     </div>
+                                </div>
 
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <div class="flex items-center mb-3">
+                                <!-- Payment Method -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
                                             <i class="fas fa-credit-card text-green-500 mr-2"></i>
                                             <p class="text-sm font-medium text-gray-500">Payment Method</p>
                                         </div>
-                                        <p id="modalPaymentMethod" class="text-base text-gray-900"></p>
+                                        <p id="modalPaymentMethod" class="text-base text-gray-900 font-semibold"></p>
                                     </div>
                                 </div>
 
-                                <!-- Notes Section -->
-                                <div class="col-span-2">
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <div class="flex items-center mb-3">
-                                            <i class="fas fa-sticky-note text-green-500 mr-2"></i>
-                                            <p class="text-sm font-medium text-gray-500">Notes</p>
-                                        </div>
-                                        <p id="modalPaymentNotes" class="text-base text-gray-900"></p>
+                                <!-- Notes -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-sticky-note text-green-500 mr-2"></i>
+                                        <p class="text-sm font-medium text-gray-500">Notes</p>
                                     </div>
+                                    <p id="modalNotes" class="text-base text-gray-900"></p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Modal Footer -->
-                        <div class="px-6 py-4 bg-gray-50 rounded-b-xl">
-                            <button type="button" onclick="hidePaymentModal()" 
-                                    class="w-full inline-flex justify-center items-center px-4 py-3 border border-red-300 rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
-                                <i class="fas fa-times mr-2"></i>
+                        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
+                            <button onclick="closePaymentModal()" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:w-auto">
                                 Close
                             </button>
                         </div>
@@ -286,7 +335,7 @@ foreach ($payments as $payment) {
                     document.getElementById('modalPaymentAmount').textContent = payment.amount ? 
                         'RM ' + parseFloat(payment.amount).toFixed(2) : '';
                     document.getElementById('modalPaymentMethod').textContent = payment.payment_method || 'N/A';
-                    document.getElementById('modalPaymentNotes').textContent = payment.notes || 'No notes provided';
+                    document.getElementById('modalNotes').textContent = payment.notes || 'No notes provided';
 
                     // Show modal
                     document.getElementById('paymentDetailsModal').classList.remove('hidden');
@@ -296,7 +345,7 @@ foreach ($payments as $payment) {
                 }
             }
 
-            function hidePaymentModal() {
+            function closePaymentModal() {
                 document.getElementById('paymentDetailsModal').classList.add('hidden');
                 document.body.style.overflow = 'auto';
             }
@@ -304,14 +353,14 @@ foreach ($payments as $payment) {
             // Close modal when clicking outside
             document.getElementById('paymentDetailsModal').addEventListener('click', function(e) {
                 if (e.target === this) {
-                    hidePaymentModal();
+                    closePaymentModal();
                 }
             });
 
             // Close modal on escape key
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
-                    hidePaymentModal();
+                    closePaymentModal();
                 }
             });
         </script>

@@ -6,6 +6,9 @@ ini_set('display_errors', 1);
 // Start session
 session_start();
 
+// Clear any existing session data
+session_unset();
+
 // Set base path and include required files
 $base_path = dirname(dirname(__FILE__));
 require_once $base_path . '/includes/config.php';
@@ -14,9 +17,9 @@ require_once $base_path . '/includes/config.php';
 function checkSessionAndRedirect() {
     if (isset($_SESSION['user_id'])) {
         if ($_SESSION['role'] === 'admin') {
-            header('Location: /admin/dashboard.php');
+            header('Location: ../admin/dashboard.php');
         } else {
-            header('Location: /member/member_dashboard.php');
+            header('Location: ../member/member_dashboard.php');
         }
         exit();
     }
@@ -78,9 +81,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Redirect based on role
                 if ($user['role'] === 'admin') {
-                    header('Location: /admin/dashboard.php');
+                    header('Location: ../admin/dashboard.php');
                 } else {
-                    header('Location: /member/member_dashboard.php');
+                    header('Location: ../member/member_dashboard.php');
                 }
                 exit();
             } else {
@@ -137,14 +140,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Sign in to your account
                 </h2>
                 <p class="mt-2 text-center text-sm text-gray-600">
-                    Enter your Member ID, Email, or Phone Number
+                    Enter your Phone Number & Password
                 </p>
             </div>
             <form class="mt-8 space-y-6" action="login.php" method="POST">
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
                         <label for="identifier" class="block text-sm font-medium text-gray-700 mb-2">
-                            Member ID / Email / Phone
+                            Username or Member ID
                         </label>
                         <input id="identifier" 
                                name="identifier" 
@@ -152,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                required 
                                class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400" 
                                placeholder="Enter your Member ID, Email, or Phone">
-                    </div>
+                    </div><br>
                     <div class="mt-4">
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
                             Password

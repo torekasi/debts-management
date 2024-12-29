@@ -1,164 +1,173 @@
 <?php
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once '../includes/config.php';
 require_once '../includes/session.php';
+
+// Require admin authentication
 requireAdmin();
 
 // Get user ID from URL parameter
-$user_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
 
-// Fetch user details
-$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$user) {
-    header('Location: dashboard.php');
+if (!$user_id) {
+    $_SESSION['error'] = "Invalid user ID";
+    header('Location: users.php');
     exit();
 }
 
-// Get financial summary
-$stmt = $conn->prepare("
-    SELECT 
-        COALESCE(SUM(amount), 0) as total_debt
-    FROM transactions 
-    WHERE user_id = ?
-");
-$stmt->execute([$user_id]);
-$debt_info = $stmt->fetch();
+try {
+    // Fetch user details
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$stmt = $conn->prepare("
-    SELECT 
-        COALESCE(SUM(amount), 0) as total_paid
-    FROM payments 
-    WHERE user_id = ?
-");
-$stmt->execute([$user_id]);
-$payment_info = $stmt->fetch();
-
-$balance = $debt_info['total_debt'] - $payment_info['total_paid'];
-
-// Get monthly data for the past 12 months
-$stmt = $conn->prepare("
-    SELECT 
-        DATE_FORMAT(created_at, '%Y-%m') as month,
-        SUM(amount) as total_amount
-    FROM transactions
-    WHERE user_id = ? 
-    AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-    ORDER BY month ASC
-");
-$stmt->execute([$user_id]);
-$monthly_transactions = $stmt->fetchAll();
-
-$stmt = $conn->prepare("
-    SELECT 
-        DATE_FORMAT(payment_date, '%Y-%m') as month,
-        SUM(amount) as total_amount
-    FROM payments
-    WHERE user_id = ? 
-    AND payment_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-    GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
-    ORDER BY month ASC
-");
-$stmt->execute([$user_id]);
-$monthly_payments = $stmt->fetchAll();
-
-// Format data for the chart
-$chart_labels = [];
-$transaction_data = [];
-$payment_data = [];
-
-// Get all months in the past 12 months
-$months = [];
-$current_date = new DateTime();
-for ($i = 11; $i >= 0; $i--) {
-    $date = clone $current_date;
-    $date->modify("-$i months");
-    $month_key = $date->format('Y-m');
-    $months[$month_key] = [
-        'transactions' => 0,
-        'payments' => 0
-    ];
-}
-
-// Fill in the actual data
-foreach ($monthly_transactions as $row) {
-    if (isset($months[$row['month']])) {
-        $months[$row['month']]['transactions'] = $row['total_amount'];
+    if (!$user) {
+        $_SESSION['error'] = "User not found";
+        header('Location: users.php');
+        exit();
     }
-}
 
-foreach ($monthly_payments as $row) {
-    if (isset($months[$row['month']])) {
-        $months[$row['month']]['payments'] = $row['total_amount'];
+    // Get financial summary
+    $stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(amount), 0) as total_debt
+        FROM transactions 
+        WHERE user_id = ?
+    ");
+    $stmt->execute([$user_id]);
+    $debt_info = $stmt->fetch();
+
+    $stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(amount), 0) as total_paid
+        FROM payments 
+        WHERE user_id = ?
+    ");
+    $stmt->execute([$user_id]);
+    $payment_info = $stmt->fetch();
+
+    $balance = $debt_info['total_debt'] - $payment_info['total_paid'];
+
+    // Get monthly data for the past 12 months
+    $stmt = $pdo->prepare("
+        SELECT 
+            DATE_FORMAT(date_transaction, '%Y-%m') as month,
+            SUM(amount) as total_amount
+        FROM transactions
+        WHERE user_id = ? 
+        AND date_transaction >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(date_transaction, '%Y-%m')
+        ORDER BY month ASC
+    ");
+    $stmt->execute([$user_id]);
+    $monthly_transactions = $stmt->fetchAll();
+
+    $stmt = $pdo->prepare("
+        SELECT 
+            DATE_FORMAT(payment_date, '%Y-%m') as month,
+            SUM(amount) as total_amount
+        FROM payments
+        WHERE user_id = ? 
+        AND payment_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(payment_date, '%Y-%m')
+        ORDER BY month ASC
+    ");
+    $stmt->execute([$user_id]);
+    $monthly_payments = $stmt->fetchAll();
+
+    // Format data for the chart
+    $months = [];
+    $current_date = new DateTime();
+    for ($i = 11; $i >= 0; $i--) {
+        $date = clone $current_date;
+        $date->modify("-$i months");
+        $month_key = $date->format('Y-m');
+        $months[$month_key] = [
+            'transactions' => 0,
+            'payments' => 0
+        ];
     }
+
+    // Fill in the actual data
+    foreach ($monthly_transactions as $row) {
+        if (isset($months[$row['month']])) {
+            $months[$row['month']]['transactions'] = $row['total_amount'];
+        }
+    }
+
+    foreach ($monthly_payments as $row) {
+        if (isset($months[$row['month']])) {
+            $months[$row['month']]['payments'] = $row['total_amount'];
+        }
+    }
+
+    // Prepare final chart data
+    $chart_labels = [];
+    $transaction_data = [];
+    $payment_data = [];
+    foreach ($months as $month => $data) {
+        $chart_labels[] = date('M Y', strtotime($month));
+        $transaction_data[] = $data['transactions'];
+        $payment_data[] = $data['payments'];
+    }
+
+    // Pagination settings
+    $items_per_page = 10;
+
+    // Payments pagination
+    $current_page_payments = isset($_GET['pay_page']) ? (int)$_GET['pay_page'] : 1;
+    $offset_payments = ($current_page_payments - 1) * $items_per_page;
+
+    // Get total payments count
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    $total_payments = $stmt->fetchColumn();
+    $total_pages_payments = ceil($total_payments / $items_per_page);
+
+    // Fetch recent payments
+    $stmt = $pdo->prepare("
+        SELECT p.*, u.full_name as user_name 
+        FROM payments p 
+        LEFT JOIN users u ON p.user_id = u.id 
+        WHERE p.user_id = ?
+        ORDER BY p.payment_date DESC 
+        LIMIT ? OFFSET ?
+    ");
+    $stmt->execute([$user_id, $items_per_page, $offset_payments]);
+    $recent_payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Transactions pagination
+    $current_page_transactions = isset($_GET['trans_page']) ? (int)$_GET['trans_page'] : 1;
+    $offset_transactions = ($current_page_transactions - 1) * $items_per_page;
+
+    // Get total transactions count
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    $total_transactions = $stmt->fetchColumn();
+    $total_pages_transactions = ceil($total_transactions / $items_per_page);
+
+    // Fetch recent transactions
+    $stmt = $pdo->prepare("
+        SELECT t.*, DATE_FORMAT(t.date_transaction, '%Y-%m-%d %H:%i') as formatted_date
+        FROM transactions t
+        WHERE t.user_id = ?
+        ORDER BY t.date_transaction DESC
+        LIMIT ? OFFSET ?
+    ");
+    $stmt->execute([$user_id, $items_per_page, $offset_transactions]);
+    $recent_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    error_log("Error in user.php: " . $e->getMessage());
+    $_SESSION['error'] = "An error occurred while loading user data.";
+    header('Location: users.php');
+    exit();
 }
-
-// Prepare final chart data
-foreach ($months as $month => $data) {
-    $chart_labels[] = date('M Y', strtotime($month));
-    $transaction_data[] = $data['transactions'];
-    $payment_data[] = $data['payments'];
-}
-
-// Pagination settings
-$items_per_page = 10;
-
-// Payments pagination
-$current_page_payments = isset($_GET['pay_page']) ? (int)$_GET['pay_page'] : 1;
-$offset_payments = ($current_page_payments - 1) * $items_per_page;
-
-// Get total payments count
-$stmt = $conn->prepare("SELECT COUNT(*) FROM payments WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$total_payments = $stmt->fetchColumn();
-$total_pages_payments = ceil($total_payments / $items_per_page);
-
-// Fetch recent payments
-$stmt = $conn->prepare("
-    SELECT p.*, u.full_name as user_name 
-    FROM payments p 
-    LEFT JOIN users u ON p.user_id = u.id 
-    WHERE p.user_id = ?
-    ORDER BY p.created_at DESC 
-    LIMIT ? OFFSET ?
-");
-$stmt->execute([$user_id, $items_per_page, $offset_payments]);
-$recent_payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Transactions pagination
-$current_page_transactions = isset($_GET['trans_page']) ? (int)$_GET['trans_page'] : 1;
-$offset_transactions = ($current_page_transactions - 1) * $items_per_page;
-
-// Get total transactions count
-$stmt = $conn->prepare("SELECT COUNT(*) FROM transactions WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$total_transactions = $stmt->fetchColumn();
-$total_pages_transactions = ceil($total_transactions / $items_per_page);
-
-// Fetch recent transactions
-$stmt = $conn->prepare("
-    SELECT t.id, t.transaction_id, t.amount, t.description, t.created_at, t.type, t.image_path
-    FROM transactions t
-    WHERE t.user_id = ?
-    ORDER BY t.created_at DESC
-    LIMIT ? OFFSET ?
-");
-$stmt->execute([$user_id, $items_per_page, $offset_transactions]);
-$recent_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Calculate total debt and total paid
-$stmt = $conn->prepare("SELECT SUM(amount) FROM transactions WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$total_debt = $stmt->fetchColumn() ?: 0;
-
-$stmt = $conn->prepare("SELECT SUM(amount) FROM payments WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$total_paid = $stmt->fetchColumn() ?: 0;
-
-$remaining_debt = $total_debt - $total_paid;
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -172,9 +181,22 @@ $remaining_debt = $total_debt - $total_paid;
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen">
-      <!-- Navigation -->
-      <?php require_once 'template/header.php'; ?>
-
+        <!-- Navigation -->
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="dashboard.php" class="text-2xl font-bold text-gray-800"><?php echo APP_NAME; ?></a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <a href="dashboard.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                        <a href="auth/logout.php" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
 
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -395,7 +417,7 @@ $remaining_debt = $total_debt - $total_paid;
                                                 <?php foreach ($recent_transactions as $transaction): ?>
                                                     <tr class="transaction-row-<?php echo $transaction['id']; ?>">
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                            <?php echo date('Y-m-d H:i', strtotime($transaction['created_at'])); ?>
+                                                            <?php echo $transaction['formatted_date']; ?>
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap">
                                                             <?php if ($transaction['type'] == 'transaction'): ?>
@@ -417,7 +439,7 @@ $remaining_debt = $total_debt - $total_paid;
                                                                 data-transaction='<?php 
                                                                     echo htmlspecialchars(json_encode([
                                                                         'amount' => number_format($transaction['amount'], 2),
-                                                                        'date' => date('Y-m-d H:i', strtotime($transaction['created_at'])),
+                                                                        'date' => $transaction['formatted_date'],
                                                                         'transaction_id' => $transaction['transaction_id'] ?? 'N/A',
                                                                         'type' => $transaction['type'] ?? 'N/A',
                                                                         'description' => $transaction['description'] ?? 'No description',

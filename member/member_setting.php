@@ -57,15 +57,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_password'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Account Settings - Debt Management System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Member Dashboard - <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            padding-top: 4rem;
+            padding-bottom: 4rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .content-container {
+            flex: 1;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 1rem;
+            width: 100%;
+        }
+        @media (max-width: 768px) {
+            .content-container {
+                max-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <?php include("template/member_header.php"); ?>
 
-    <main class="content-container p-4 md:p-6" style="margin: 80px 0;">
+    <main class="content-container">
         <div class="max-w-4xl mx-auto">
             <!-- Profile Section -->
             <div class="bg-white rounded-lg shadow-sm p-6 mb-6">

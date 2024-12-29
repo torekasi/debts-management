@@ -1,4 +1,8 @@
 <?php
+// Application configuration
+define('APP_NAME', 'Mini Mart 3099');
+define('APP_VERSION', '1.0.0');
+
 // Start session at the very beginning if not already started
 if (session_status() === PHP_SESSION_NONE) {
     // Set session configuration before starting the session
@@ -6,66 +10,63 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_lifetime', 86400);
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_only_cookies', 1);
-    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
-        ini_set('session.cookie_secure', 1);
-    }
     session_start();
 }
 
-
-// DB_NAME: Your cPanel username followed by an underscore and the database name
-define('DB_HOST', 'localhost'); // e.g., 'localhost' or your specific database host
-define('DB_USER', 'your_cpanel_username_dbuser'); // e.g., 'cpaneluser_dbuser'
-define('DB_PASS', 'your_db_password'); // e.g., 'yourpassword'
-define('DB_NAME', 'your_cpanel_username_dbname'); // e.g., 'cpaneluser_dbname'
-define('DB_PORT', '3306'); // Default MySQL port
-
-// Establish database connection using PDO
-try {
-    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-    $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
-        PDO::MYSQL_ATTR_SSL_ENABLE => false
-    ];
-    $conn = new PDO($dsn, DB_USER, DB_PASS, $options);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
-
-// Application Configuration
-define('APP_NAME', 'Mini Mart 3099');
-define('APP_URL', 'http://localhost:8080'); // Change this to your domain
-define('APP_VERSION', '1.0.0');
-
-// Session Configuration
-define('SESSION_LIFETIME', 86400); // 24 hours
-
-// Upload Configuration
-define('UPLOAD_MAX_SIZE', 10 * 1024 * 1024); // 10MB
-define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/gif']);
-define('UPLOAD_PATH', __DIR__ . '/../uploads');
-
-// Notification Settings
-define('PAYMENT_REMINDER_DAYS', 3); // Send reminder 3 days before due date
-define('PAYMENT_OVERDUE_DAYS', 1); // Send overdue notice 1 day after due date
-
-// Error Reporting
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Enable error logging
 ini_set('log_errors', 1);
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
 ini_set('error_log', __DIR__ . '/../logs/error.log');
 
-// Create necessary directories
-$directories = [
-    __DIR__ . '/../uploads',
-    __DIR__ . '/../logs'
-];
+// Database configuration
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USERNAME') ?: 'rc126893_mydebts');
+define('DB_PASS', getenv('DB_PASSWORD') ?: 'Malaysia@2413');
+define('DB_NAME', getenv('DB_DATABASE') ?: 'rc126893_mydebts');
+define('DB_PORT', getenv('DB_PORT') ?: '3306');
 
-foreach ($directories as $dir) {
-    if (!file_exists($dir)) {
-        mkdir($dir, 0777, true);
-    }
+// Create PDO connection
+try {
+    $dsn = sprintf("mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4", DB_HOST, DB_PORT, DB_NAME);
+    $conn = new PDO($dsn, DB_USER, DB_PASS);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $conn->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+} catch (PDOException $e) {
+    error_log("Database connection failed: " . $e->getMessage());
+    die("Database connection failed. Please try again later.");
 }
+
+// Common functions
+function sanitize_input($data) {
+    $data = trim($data);
+    $data = stripslashes($data);
+    $data = htmlspecialchars($data);
+    return $data;
+}
+
+function format_date($date) {
+    return date('Y-m-d H:i:s', strtotime($date));
+}
+
+function format_currency($amount) {
+    return number_format($amount, 2, '.', ',');
+}
+
+// Error handling function
+function handle_error($error_message) {
+    error_log($error_message);
+    return "An error occurred. Please try again later.";
+}
+
+// Success message function
+function success_message($message) {
+    return "<div class='alert alert-success'>" . htmlspecialchars($message) . "</div>";
+}
+
+// Error message function
+function error_message($message) {
+    return "<div class='alert alert-danger'>" . htmlspecialchars($message) . "</div>";
+}
+?>

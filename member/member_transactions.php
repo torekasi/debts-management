@@ -23,6 +23,27 @@ $stmt = $conn->prepare("
 $stmt->execute([$_SESSION['user_id']]);
 $monthSpending = $stmt->fetch()['month_spending'] ?? 0;
 
+// Get total transaction amount
+$stmt = $conn->prepare("
+    SELECT COALESCE(SUM(amount), 0) as total_amount 
+    FROM transactions 
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+$totalTransactionAmount = $stmt->fetch()['total_amount'] ?? 0;
+
+// Get total payment amount
+$stmt = $conn->prepare("
+    SELECT COALESCE(SUM(amount), 0) as total_amount 
+    FROM payments 
+    WHERE user_id = ?
+");
+$stmt->execute([$_SESSION['user_id']]);
+$totalPaymentAmount = $stmt->fetch()['total_amount'] ?? 0;
+
+// Calculate balance
+$balance = $totalTransactionAmount - $totalPaymentAmount;
+
 // Get transaction history with pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 10;
@@ -56,40 +77,90 @@ foreach ($transactions as $transaction) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transaction History - Debt Management System</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Member Dashboard - <?php echo APP_NAME; ?></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            padding-top: 4rem;
+            padding-bottom: 4rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .content-container {
+            flex: 1;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 1rem;
+            width: 100%;
+        }
+        @media (max-width: 768px) {
+            .content-container {
+                max-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100" >
     <?php include 'template/member_header.php'; ?>
 
-    <main class="content-container p-4 md:p-6" style="margin: 80px 0;">
+    <main class="content-container">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-2 gap-4 mb-8">
-            <!-- Total Spending Card -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <!-- Total Transactions Card -->
             <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
                 <div class="flex items-center">
-                    <div class="p-2 md:p-3 rounded-full bg-blue-100 text-blue-500">
-                        <i class="fas fa-wallet text-lg md:text-2xl"></i>
+                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                     </div>
-                    <div class="ml-3 md:ml-4">
-                        <p class="text-xs md:text-sm font-medium text-gray-500">Total Spend</p>
-                        <h3 class="text-base md:text-2xl font-bold text-gray-900">RM <?php echo number_format($totalSpending, 2); ?></h3>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
+                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($totalTransactionAmount, 2); ?></dd>
+                        </dl>
                     </div>
                 </div>
             </div>
 
-            <!-- This Month's Spending Card -->
+            <!-- Total Payments Card -->
             <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
                 <div class="flex items-center">
-                    <div class="p-2 md:p-3 rounded-full bg-green-100 text-green-500">
-                        <i class="fas fa-calendar-alt text-lg md:text-2xl"></i>
+                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                     </div>
-                    <div class="ml-3 md:ml-4">
-                        <p class="text-xs md:text-sm font-medium text-gray-500">This Month Spend</p>
-                        <h3 class="text-base md:text-2xl font-bold text-gray-900">RM <?php echo number_format($monthSpending, 2); ?></h3>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
+                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($totalPaymentAmount, 2); ?></dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balance Card -->
+            <div class="bg-green-50 rounded-lg shadow-sm p-4 md:p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                        </svg>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Balance</dt>
+                            <dd class="text-lg font-semibold text-<?php echo $balance > 0 ? 'red' : 'green'; ?>-600">
+                                RM <?php echo number_format(abs($balance), 2); ?>
+                                <span class="text-sm font-normal"><?php echo $balance > 0 ? '(Outstanding)' : '(Paid)'; ?></span>
+                            </dd>
+                        </dl>
                     </div>
                 </div>
             </div>

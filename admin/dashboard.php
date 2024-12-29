@@ -39,7 +39,8 @@ try {
 $stats = [
     'total_users' => 0,
     'total_transactions' => 0,
-    'total_payments' => 0
+    'total_payments' => 0,
+    'outstanding_balance' => 0
 ];
 
 try {
@@ -47,13 +48,16 @@ try {
     $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'");
     $stats['total_users'] = $stmt->fetchColumn();
 
-    // Get total transactions
-    $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
+    // Get total transactions amount
+    $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM transactions");
     $stats['total_transactions'] = $stmt->fetchColumn();
 
     // Get total payments
     $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM payments");
     $stats['total_payments'] = $stmt->fetchColumn();
+
+    // Calculate outstanding balance
+    $stats['outstanding_balance'] = $stats['total_transactions'] - $stats['total_payments'];
 
     // Get monthly transactions and payments for the last 12 months
     $stmt = $pdo->query("
@@ -204,54 +208,51 @@ try {
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <!-- Total Payments recieved -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
+                                <i class="fas fa-hand-holding-usd text-white text-2xl"></i>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_users']); ?></dd>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Payments Recieved</dt>
+                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['total_payments'], 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- Total Amount -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                                <i class="fas fa-hand-holding-usd text-white text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Transaction Amount</dt>
+                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['total_transactions'], 2); ?></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Outstanding Balance -->
+                <div class="bg-green-100 overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                </svg>
+                                <i class="fas fa-balance-scale text-white text-2xl"></i>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
-                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_transactions']); ?></dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
-                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($stats['total_payments'], 2); ?></dd>
+                                    <dt class="text-sm font-medium text-green-700 truncate">Outstanding Balance</dt>
+                                    <dd class="text-lg font-semibold text-green-900">RM <?php echo number_format($stats['outstanding_balance'], 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
