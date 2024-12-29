@@ -60,17 +60,26 @@ if (isset($_POST['toggle_status']) && isset($_POST['user_id'])) {
 
 // Add search parameter
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$status_filter = isset($_GET['status_filter']) ? $_GET['status_filter'] : 'all';
+
 $search_condition = '';
+$status_condition = '';
+
 if (!empty($search)) {
     $search_condition = " AND (member_id LIKE :search OR full_name LIKE :search)";
 }
 
+if ($status_filter !== 'all') {
+    $status_condition = " AND status = :status";
+}
+
 try {
-    // Get total number of users for pagination with search
+    // Get total number of users for pagination with search and status filter
     $stmt = $pdo->prepare("
         SELECT COUNT(*) 
         FROM users 
         WHERE role = 'user'
+        " . $status_condition . "
         " . (!empty($search) ? "
         AND (
             member_id LIKE :search OR
@@ -81,6 +90,9 @@ try {
     );
     if (!empty($search)) {
         $stmt->bindValue(':search', "%$search%", PDO::PARAM_STR);
+    }
+    if ($status_filter !== 'all') {
+        $stmt->bindValue(':status', $status_filter, PDO::PARAM_STR);
     }
     $stmt->execute();
     $total_users = $stmt->fetchColumn();
@@ -140,6 +152,7 @@ try {
             GROUP BY user_id
         ) p ON u.id = p.user_id
         WHERE u.role = 'user'
+        " . $status_condition . "
         " . $search_condition . "
         ORDER BY u.created_at DESC 
         LIMIT :offset, :limit"
@@ -148,6 +161,9 @@ try {
     $stmt->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
     if (!empty($search)) {
         $stmt->bindValue(':search', "%$search%", PDO::PARAM_STR);
+    }
+    if ($status_filter !== 'all') {
+        $stmt->bindValue(':status', $status_filter, PDO::PARAM_STR);
     }
     $stmt->execute();
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -277,7 +293,15 @@ try {
                         </h3>
                         <div class="mt-4 sm:mt-0">
                             <form action="" method="GET" class="flex items-center">
-                                <div class="relative rounded-md shadow-sm">
+                                <select name="status_filter" 
+                                        onchange="this.form.submit()"
+                                        class="px-4 py-3 border-2 border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+                                        style="min-width: 150px;">
+                                    <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
+                                    <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
+                                    <option value="inactive" <?php echo $status_filter === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                                </select>
+                                <div class="relative rounded-md shadow-sm ml-3">
                                     <input type="text" 
                                            name="search" 
                                            value="<?php echo htmlspecialchars($search); ?>"
@@ -355,7 +379,7 @@ try {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex space-x-2">
+                                        <div class="flex items-center space-x-2">
                                             <a href="user_dashboard.php?user_id=<?php echo $user['id']; ?>" 
                                                class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                                 View
@@ -368,6 +392,17 @@ try {
                                                     class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                                                 Delete
                                             </button>
+                                            <?php if ($user['status'] === 'active'): ?>
+                                                <span class="text-gray-300 px-2">|</span>
+                                                <a href="add_payment.php?user_id=<?php echo $user['id']; ?>" 
+                                                   class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                                    Add Payment
+                                                </a>
+                                                <a href="add_transaction.php?user_id=<?php echo $user['id']; ?>" 
+                                                   class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                                    Add Transaction
+                                                </a>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -394,7 +429,7 @@ try {
                             <div>
                                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                                     <?php if ($current_page > 1): ?>
-                                        <a href="?page=<?php echo ($current_page - 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <a href="?page=<?php echo ($current_page - 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?><?php echo $status_filter !== 'all' ? '&status_filter=' . $status_filter : ''; ?>" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                                             <span class="sr-only">Previous</span>
                                             <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -402,13 +437,13 @@ try {
                                         </a>
                                     <?php endif; ?>
                                     <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                        <a href="?page=<?php echo $i; ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>" 
+                                        <a href="?page=<?php echo $i; ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?><?php echo $status_filter !== 'all' ? '&status_filter=' . $status_filter : ''; ?>" 
                                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium <?php echo $i === $current_page ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-50'; ?>">
                                             <?php echo $i; ?>
                                         </a>
                                     <?php endfor; ?>
                                     <?php if ($current_page < $total_pages): ?>
-                                        <a href="?page=<?php echo ($current_page + 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                        <a href="?page=<?php echo ($current_page + 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?><?php echo $status_filter !== 'all' ? '&status_filter=' . $status_filter : ''; ?>" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                                             <span class="sr-only">Next</span>
                                             <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
@@ -541,7 +576,5 @@ try {
             <?php endif; ?>
         });
     </script>
-</body>
-</html>
 </body>
 </html>

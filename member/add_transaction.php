@@ -32,17 +32,71 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $file_extension = strtolower(pathinfo($_FILES['receipt_image']['name'], PATHINFO_EXTENSION));
             $new_filename = $transaction_id . '.' . $file_extension;
             $upload_path = $upload_dir . $new_filename;
+            $temp_path = $_FILES['receipt_image']['tmp_name'];
 
             // Validate file type
-            $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
+            $allowed_types = ['jpg', 'jpeg', 'png'];
             if (!in_array($file_extension, $allowed_types)) {
-                throw new Exception("Invalid file type. Only JPG, PNG, and GIF are allowed.");
+                throw new Exception("Invalid file type. Only JPG and PNG are allowed.");
             }
 
-            // Move uploaded file
-            if (move_uploaded_file($_FILES['receipt_image']['tmp_name'], $upload_path)) {
-                $image_path = 'uploads/receipts/' . $new_filename;
+            // Get image info
+            list($width, $height, $type) = getimagesize($temp_path);
+            
+            // Calculate new dimensions (max width: 400px)
+            $max_width = 400;
+            $new_width = $width;
+            $new_height = $height;
+            
+            if ($width > $max_width) {
+                $ratio = $max_width / $width;
+                $new_width = $max_width;
+                $new_height = $height * $ratio;
             }
+
+            // Create new image
+            $new_image = imagecreatetruecolor($new_width, $new_height);
+            
+            // Handle transparency for PNG
+            if ($file_extension === 'png') {
+                imagealphablending($new_image, false);
+                imagesavealpha($new_image, true);
+                $source = imagecreatefrompng($temp_path);
+            } else {
+                $source = imagecreatefromjpeg($temp_path);
+            }
+
+            // Resize image
+            imagecopyresampled(
+                $new_image, 
+                $source, 
+                0, 0, 0, 0, 
+                $new_width, 
+                $new_height, 
+                $width, 
+                $height
+            );
+
+            // Save the resized image
+            if ($file_extension === 'png') {
+                // For PNG, use maximum compression (9)
+                imagepng($new_image, $upload_path, 9);
+            } else {
+                // For JPEG, use quality 60 for compression (0-100)
+                imagejpeg($new_image, $upload_path, 60);
+            }
+
+            // Clean up
+            imagedestroy($new_image);
+            imagedestroy($source);
+
+            // Verify file size after compression
+            if (filesize($upload_path) > 500 * 1024) { // 500KB
+                unlink($upload_path); // Delete the file if it's still too large
+                throw new Exception("Image file size is too large after compression. Please use a smaller image.");
+            }
+
+            $image_path = 'uploads/receipts/' . $new_filename;
         }
 
         // Insert into database

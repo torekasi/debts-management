@@ -32,9 +32,7 @@ require_once '../includes/session.php';
                         <a href="transactions.php" class="<?php echo basename($_SERVER['PHP_SELF']) === 'transactions.php' ? 'border-indigo-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'; ?> inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Transactions
                         </a>
-                        <a href="payments.php" class="<?php echo basename($_SERVER['PHP_SELF']) === 'payments.php' ? 'border-indigo-500 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'; ?> inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Payments
-                        </a>
+
                     </div>
                 </div>
                 <!-- User Menu -->

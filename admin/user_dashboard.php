@@ -15,51 +15,48 @@ if (!$user) {
     exit;
 }
 
-// Pagination settings
-$items_per_page = 10;
-$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$offset = ($current_page - 1) * $items_per_page;
-
-// Get current month's transactions
-$current_month = date('Y-m');
+// Get all transactions grouped by month
 $stmt = $conn->prepare("
     SELECT 
         t.*,
         u.member_id,
-        u.full_name
+        u.full_name,
+        DATE_FORMAT(t.date_transaction, '%Y-%m') as month_group
     FROM transactions t
     LEFT JOIN users u ON t.user_id = u.id
     WHERE t.user_id = ? 
-    AND DATE_FORMAT(t.date_transaction, '%Y-%m') = ?
     ORDER BY t.date_transaction DESC, t.id DESC
-    LIMIT ? OFFSET ?
 ");
-$stmt->execute([$user_id, $current_month, $items_per_page, $offset]);
-$transactions = $stmt->fetchAll();
+$stmt->execute([$user_id]);
+$all_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get total amount for current month
+// Group transactions by month
+$transactions_by_month = [];
+$monthly_totals = [];
+foreach ($all_transactions as $transaction) {
+    $month = $transaction['month_group'];
+    $transactions_by_month[$month][] = $transaction;
+    
+    if (!isset($monthly_totals[$month])) {
+        $monthly_totals[$month] = 0;
+    }
+    $monthly_totals[$month] += $transaction['amount'];
+}
+
+// Get total amount of all transactions
+$total_amount = array_sum($monthly_totals);
+
+// Get total payments from payments table
 $stmt = $conn->prepare("
-    SELECT SUM(amount) as total 
-    FROM transactions 
-    WHERE user_id = ? 
-    AND DATE_FORMAT(date_transaction, '%Y-%m') = ?
+    SELECT COALESCE(SUM(amount), 0) as total_payments
+    FROM payments 
+    WHERE user_id = ?
 ");
-$stmt->execute([$user_id, $current_month]);
-$monthly_total = $stmt->fetch()['total'] ?? 0;
+$stmt->execute([$user_id]);
+$total_payments = $stmt->fetchColumn();
 
-// Get total count for pagination
-$stmt = $conn->prepare("
-    SELECT COUNT(*) 
-    FROM transactions 
-    WHERE user_id = ? 
-    AND DATE_FORMAT(date_transaction, '%Y-%m') = ?
-");
-$stmt->execute([$user_id, $current_month]);
-$total_records = $stmt->fetchColumn();
-$total_pages = ceil($total_records / $items_per_page);
-
-// Initialize payments array
-$payments = [];
+// Calculate outstanding balance (transactions - payments)
+$outstanding_balance = $total_amount - $total_payments;
 
 // Get payments for this user
 $stmt = $conn->prepare("SELECT * FROM payments WHERE user_id = ? ORDER BY payment_date DESC");
@@ -104,6 +101,22 @@ include 'template/header.php';
                 </div>
             </div>
 
+            <!-- Action Buttons -->
+            <div class="flex justify-end space-x-4 mb-8">
+                <a href="/admin/add_transaction.php?user_id=<?php echo $user_id; ?>" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Add Transaction
+                </a>
+                <a href="/admin/add_payment.php?user_id=<?php echo $user_id; ?>" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                    Add Payment
+                </a>
+            </div>
+
             <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div class="bg-white overflow-hidden shadow rounded-lg">
@@ -117,7 +130,7 @@ include 'template/header.php';
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
-                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($monthly_total, 2); ?></dd>
+                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($total_amount, 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
@@ -134,7 +147,7 @@ include 'template/header.php';
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt class="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
-                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($monthly_total, 2); ?></dd>
+                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($total_payments, 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
@@ -151,7 +164,9 @@ include 'template/header.php';
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
                                     <dt class="text-sm font-medium text-gray-500 truncate">Outstanding Balance</dt>
-                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($monthly_total, 2); ?></dd>
+                                    <dd class="text-lg font-medium <?php echo $outstanding_balance > 0 ? 'text-red-600' : 'text-green-600'; ?>">
+                                        RM <?php echo number_format($outstanding_balance, 2); ?>
+                                    </dd>
                                 </dl>
                             </div>
                         </div>
@@ -159,18 +174,21 @@ include 'template/header.php';
                 </div>
             </div>
 
-            <!-- Recent Transactions -->
+            <!-- Transactions by Month -->
+            <?php foreach ($transactions_by_month as $month => $month_transactions): ?>
             <div class="bg-white shadow rounded-lg mb-8">
-                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-blue-50 cursor-pointer" onclick="toggleMonth('December2024')">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-blue-50 cursor-pointer" onclick="toggleMonth('<?php echo $month; ?>')">
                     <div class="flex items-center">
-                        <svg class="h-5 w-5 transform transition-transform duration-200" id="December2024-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        <svg class="h-5 w-5 transform transition-transform duration-200" id="<?php echo $month; ?>-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
-                        <h3 class="text-lg leading-6 font-medium text-gray-900 ml-2">December 2024</h3>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 ml-2">
+                            <?php echo date('F Y', strtotime($month . '-01')); ?>
+                        </h3>
                     </div>
-                    <div class="text-blue-600 font-medium">Total: RM <?php echo number_format($monthly_total, 2); ?></div>
+                    <div class="text-blue-600 font-medium">Total: RM <?php echo number_format($monthly_totals[$month], 2); ?></div>
                 </div>
-                <div id="December2024-content" class="flex flex-col">
+                <div id="<?php echo $month; ?>-content" class="flex flex-col" style="display: none;">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -184,28 +202,26 @@ include 'template/header.php';
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <?php foreach ($transactions as $transaction): ?>
-                                <tr>
+                                <?php foreach ($month_transactions as $transaction): ?>
+                                <tr class="hover:bg-gray-50">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800">
                                         <?php echo htmlspecialchars($transaction['transaction_id']); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <?php echo htmlspecialchars($transaction['type']); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         RM <?php echo number_format($transaction['amount'], 2); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <?php echo htmlspecialchars($transaction['description']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php echo date('d F Y', strtotime($transaction['date_transaction'])); ?>
+                                        <?php echo date('d M Y | h:i A', strtotime($transaction['date_transaction'])); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                                        <?php if (!empty($transaction['image_path'])): ?>
-                                            <a href="#" onclick="viewImage('/<?php echo htmlspecialchars($transaction['image_path']); ?>'); return false;" class="hover:text-blue-800">View Image</a>
-                                        <?php else: ?>
-                                            -
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <?php if ($transaction['image_path']): ?>
+                                            <button onclick="showImageModal('<?php echo htmlspecialchars($transaction['image_path']); ?>')" class="text-blue-500 hover:text-blue-700">View Image</button>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -213,39 +229,13 @@ include 'template/header.php';
                             </tbody>
                         </table>
                     </div>
-                    <!-- Pagination -->
-                    <?php if ($total_pages > 1): ?>
-                    <div class="px-6 py-4 bg-white border-t border-gray-200">
-                        <div class="flex justify-end">
-                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                <?php if ($current_page > 1): ?>
-                                <a href="?page=<?php echo ($current_page - 1); ?>&user_id=<?php echo $user_id; ?>" 
-                                   class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                    Previous
-                                </a>
-                                <?php endif; ?>
-                                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <a href="?page=<?php echo $i; ?>&user_id=<?php echo $user_id; ?>" 
-                                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium <?php echo $current_page == $i ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-50'; ?>">
-                                    <?php echo $i; ?>
-                                </a>
-                                <?php endfor; ?>
-                                <?php if ($current_page < $total_pages): ?>
-                                <a href="?page=<?php echo ($current_page + 1); ?>&user_id=<?php echo $user_id; ?>" 
-                                   class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                    Next
-                                </a>
-                                <?php endif; ?>
-                            </nav>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
             </div>
+            <?php endforeach; ?>
 
             <!-- Recent Payments -->
             <div class="bg-white shadow rounded-lg mb-8">
-                <div class="px-4 py-5 sm:px-6">
+                <div class="px-4 py-5 sm:px-6 flex justify-between items-center bg-green-50">
                     <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Payments</h3>
                 </div>
                 <div class="flex flex-col">
@@ -253,19 +243,20 @@ include 'template/header.php';
                         <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
                             <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                                 <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
+                                    <thead class="bg-green-50">
                                         <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         <?php foreach ($payments as $payment): ?>
-                                        <tr>
+                                        <tr class="hover:bg-gray-50">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('Y-m-d', strtotime($payment['created_at'])); ?>
+                                                <?php echo date('d M Y | h:i A', strtotime($payment['payment_date'])); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 RM <?php echo number_format($payment['amount'], 2); ?>
@@ -273,10 +264,11 @@ include 'template/header.php';
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php echo htmlspecialchars($payment['payment_method']); ?>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    <?php echo htmlspecialchars($payment['status']); ?>
-                                                </span>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo htmlspecialchars($payment['id']); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo htmlspecialchars($payment['notes']); ?>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
@@ -310,19 +302,26 @@ include 'template/header.php';
     </div>
 
     <script>
-        function toggleMonth(monthId) {
-            const content = document.getElementById(`${monthId}-content`);
-            const icon = document.getElementById(`${monthId}-icon`);
+        function toggleMonth(month) {
+            const content = document.getElementById(`${month}-content`);
+            const icon = document.getElementById(`${month}-icon`);
+            
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                icon.classList.add('rotate-180');
+                icon.style.transform = 'rotate(180deg)';
             } else {
                 content.style.display = 'none';
-                icon.classList.remove('rotate-180');
+                icon.style.transform = 'rotate(0)';
             }
         }
+        
+        // Show the current month's transactions by default
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentMonth = '<?php echo date('Y-m'); ?>';
+            toggleMonth(currentMonth);
+        });
 
-        function viewImage(imagePath) {
+        function showImageModal(imagePath) {
             const modal = document.getElementById('imageModal');
             const modalImg = document.getElementById('modalImage');
             

@@ -131,11 +131,11 @@ try {
 
     // Get recent transactions with pagination
     $stmt = $pdo->prepare("
-        SELECT t.id, t.amount, t.description, t.image_path, t.created_at, u.full_name
+        SELECT t.id, t.amount, t.description, t.image_path, t.date_transaction, u.full_name, u.id as user_id
         FROM transactions t
         JOIN users u ON t.user_id = u.id
         WHERE t.type != 'debt'
-        ORDER BY t.created_at DESC
+        ORDER BY t.date_transaction DESC
         LIMIT :offset, :limit
     ");
     $stmt->bindValue(':offset', $offset_transactions, PDO::PARAM_INT);
@@ -184,7 +184,6 @@ try {
 }
 
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -203,7 +202,7 @@ try {
     <div class="min-h-screen">
         <!-- Navigation -->
         <?php require_once 'template/header.php'; ?>
-
+        
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- Statistics Cards -->
@@ -288,7 +287,7 @@ try {
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Transaction</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                                         </tr>
                                     </thead>
@@ -296,7 +295,9 @@ try {
                                         <?php foreach ($recent_transactions as $transaction): ?>
                                         <tr class="hover:bg-green-100">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                <?php echo htmlspecialchars($transaction['full_name'] ?? ''); ?>
+                                                <a href="/admin/user_dashboard.php?user_id=<?php echo $transaction['user_id']; ?>" class="text-blue-600 hover:text-blue-800">
+                                                    <?php echo htmlspecialchars($transaction['full_name'] ?? ''); ?>
+                                                </a>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 RM <?php echo number_format($transaction['amount'] ?? 0, 2); ?>
@@ -305,7 +306,7 @@ try {
                                                 <?php echo htmlspecialchars($transaction['description'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('d M Y | h:i A', strtotime($transaction['created_at'] ?? '')); ?>
+                                                <?php echo date('d M Y | h:i A', strtotime($transaction['date_transaction'] ?? '')); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php if ($transaction['image_path']): ?>

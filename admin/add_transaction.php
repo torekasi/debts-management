@@ -18,9 +18,27 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Get users for dropdown
-    $users_query = "SELECT id, full_name, member_id FROM users WHERE role = 'user' ORDER BY full_name";
+    // Get only active users for dropdown
+    $users_query = "SELECT id, full_name, member_id 
+                   FROM users 
+                   WHERE role = 'user' 
+                   AND status = 'active' 
+                   ORDER BY full_name";
     $users = $pdo->query($users_query)->fetchAll();
+
+    // Get user_id from URL if present
+    $selected_user_id = isset($_GET['user_id']) ? $_GET['user_id'] : null;
+    
+    // If user_id is provided, verify it exists
+    $selected_user = null;
+    if ($selected_user_id) {
+        foreach ($users as $user) {
+            if ($user['id'] == $selected_user_id) {
+                $selected_user = $user;
+                break;
+            }
+        }
+    }
 
     // Handle form submission
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -123,8 +141,8 @@ try {
 } catch (Exception $e) {
     $_SESSION['error_message'] = "Database connection error: " . $e->getMessage();
 }
-?>
 
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -201,7 +219,7 @@ try {
     <div class="min-h-screen">
         <!-- Navigation -->
         <?php require_once 'template/header.php'; ?>
-
+        
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- Header -->
@@ -228,12 +246,12 @@ try {
                             <div>
                                 <label for="user_id" class="block text-sm font-medium text-gray-700">Select User</label>
                                 <select id="user_id" name="user_id" required
-                                        class="select2 focus:ring-indigo-500 focus:border-indigo-500 block w-full h-12 sm:text-sm border-2 border-gray-300 rounded-lg"
-                                        autocomplete="off">
+                                        class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                     <option value="">Select a user</option>
                                     <?php foreach ($users as $user): ?>
-                                        <option value="<?php echo $user['id']; ?>">
-                                            <?php echo htmlspecialchars($user['full_name']) . ' (' . htmlspecialchars($user['member_id']) . ')'; ?>
+                                        <option value="<?php echo $user['id']; ?>" 
+                                                <?php echo ($selected_user_id == $user['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($user['member_id'] . ' - ' . $user['full_name']); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -344,34 +362,20 @@ try {
         <?php endif; ?>
 
         // Initialize Select2
-        $('.select2').select2({
-            placeholder: "Search for a user...",
-            allowClear: true,
-            dropdownParent: $('body'),
-            minimumResultsForSearch: 0,
-            width: '100%'
+        $('#user_id').select2({
+            placeholder: 'Select a user',
+            allowClear: true
         });
 
-        // Focus search field immediately when dropdown opens
-        $(document).on('select2:open', () => {
-            document.querySelector('.select2-container--open .select2-search__field').focus();
-        });
+        <?php if ($selected_user_id): ?>
+        // If user is pre-selected, initialize Select2 with the value and focus on amount
+        $('#user_id').val('<?php echo $selected_user_id; ?>').trigger('change');
+        setTimeout(function() {
+            $('#amount').focus();
+        }, 100);
+        <?php endif; ?>
 
-        // Handle click on select2 container
-        $('.select2-container').on('click', function() {
-            setTimeout(() => {
-                $('.select2-container--open .select2-search__field').focus();
-            }, 0);
-        });
-
-        // Ensure focus is maintained
-        $('.select2').on('select2:open', function() {
-            setTimeout(() => {
-                $('.select2-container--open .select2-search__field').focus();
-            }, 0);
-        });
-
-        // Initialize Flatpickr
+        // Initialize Flatpickr for date input
         const fp = flatpickr("#date_transaction_display", {
             enableTime: true,
             dateFormat: "d M Y h:i K",
