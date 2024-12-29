@@ -341,7 +341,9 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                 }
 
                 // Add form submit handler to show loading state
-                document.getElementById('transactionForm').addEventListener('submit', function(e) {
+                document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
                     const submitButton = this.querySelector('button[type="submit"]');
                     submitButton.disabled = true;
                     submitButton.innerHTML = `
@@ -351,6 +353,42 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                         </svg>
                         Processing...
                     `;
+
+                    try {
+                        const formData = new FormData(this);
+                        const response = await fetch('add_transaction.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: result.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            throw new Error(result.message);
+                        }
+                    } catch (error) {
+                        Swal.fire({
+                            title: 'Error!',
+                            text: error.message || 'Something went wrong',
+                            icon: 'error'
+                        });
+                    } finally {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = `
+                            <i class="fas fa-plus-circle mr-2"></i>
+                            Add Transaction
+                        `;
+                    }
                 });
             </script>
 
