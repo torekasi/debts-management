@@ -116,9 +116,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* Hide Google Translate elements */
+        .goog-te-banner-frame,
+        .skiptranslate,
+        .goog-te-spinner-pos,
+        .goog-tooltip,
+        .goog-tooltip:hover,
+        .goog-text-highlight {
+            display: none !important;
+        }
+        
+        body {
+            top: 0 !important;
+            position: static !important;
+        }
+
+        /* Hide Google branding */
+        .goog-logo-link {
+            display: none !important;
+        }
+        .goog-te-gadget {
+            color: transparent !important;
+        }
+        
+        /* Hide the default Google Translate dropdown */
+        #google_translate_element {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            visibility: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
+    <!-- Hidden Google Translate Element -->
+    <div id="google_translate_element" class="hidden"></div>
+
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <?php if (isset($_SESSION['success_message'])): ?>
@@ -142,6 +175,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
             <?php endif; ?>
+            <!-- Language Selection -->
+            <div class="text-center mb-8">
+                <p class="text-sm text-gray-600 mb-3">Select Your Language:</p>
+                <div class="flex justify-center items-center space-x-4">
+                    <button onclick="translateTo('en')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="English">
+                        <img src="https://flagcdn.com/w40/gb.png" alt="English" class="w-full h-full object-cover">
+                    </button>
+                    <button onclick="translateTo('ms')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Malay">
+                        <img src="https://flagcdn.com/w40/my.png" alt="Malay" class="w-full h-full object-cover">
+                    </button>
+                    <button onclick="translateTo('ne')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Nepali">
+                        <img src="https://flagcdn.com/w40/np.png" alt="Nepali" class="w-full h-full object-cover">
+                    </button>
+                    <button onclick="translateTo('my')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Burmese">
+                        <img src="https://flagcdn.com/w40/mm.png" alt="Burmese" class="w-full h-full object-cover">
+                    </button>
+                </div>
+            </div>
             <div>
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
                     Sign in to your account
@@ -161,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                type="text" 
                                required 
                                class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400" 
-                               placeholder="Enter your Member ID, Email, or Phone">
+                               placeholder="Enter your Username or Member ID">
                     </div><br>
                     <div class="mt-4">
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
@@ -200,10 +251,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <script>
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'en,ms,ne,my',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+
+        function translateTo(lang) {
+            // Set cookies in all possible domains
+            const hostname = window.location.hostname;
+            const domain = hostname.split('.').slice(-2).join('.');
+            const domains = [hostname, '.' + hostname, domain, '.' + domain];
+            
+            domains.forEach(dom => {
+                document.cookie = `googtrans=/en/${lang}; path=/; domain=${dom}`;
+                document.cookie = `googtrans=/en/${lang}; path=/;`;
+            });
+
+            // Refresh the page to apply translation
+            window.location.reload();
+        }
+
+        // Initialize
+        window.addEventListener('load', function() {
+            // Load Google Translate script
+            const script = document.createElement('script');
+            script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+            script.async = true;
+            document.body.appendChild(script);
+
+            // Wait for Google Translate to initialize
+            let attempts = 0;
+            const checkGoogleTranslate = setInterval(function() {
+                if (document.querySelector('.goog-te-combo') || attempts > 10) {
+                    clearInterval(checkGoogleTranslate);
+                    // Remove any Google Translate banners
+                    const elements = document.getElementsByClassName('skiptranslate');
+                    for (let element of elements) {
+                        if (element.tagName === 'IFRAME') {
+                            element.style.display = 'none';
+                        }
+                    }
+                    document.body.style.top = '0px';
+                    document.body.style.position = 'static';
+                }
+                attempts++;
+            }, 1000);
+        });
+
         function togglePassword(inputId) {
             const input = document.getElementById(inputId);
-            input.type = input.type === 'password' ? 'text' : 'password';
+            if (input.type === 'password') {
+                input.type = 'text';
+            } else {
+                input.type = 'password';
+            }
         }
     </script>
 </body>
