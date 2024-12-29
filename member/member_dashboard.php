@@ -69,7 +69,6 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
 </head>
 <body class="bg-gray-100">
     <?php include 'template/member_header.php'; ?>
-
     <main class="content-container">
 
 
@@ -206,57 +205,132 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                 </div>
 
                 <div class="relative">
-                    <label for="receipt_image" class="block text-sm font-medium text-gray-700 mb-1">Take Photo</label>
-                    <div class="mt-1 flex flex-col items-center px-4 pt-3 pb-4 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors duration-150">
-                        <div class="space-y-1 text-center">
-                            <div class="flex flex-col items-center">
-                                <i class="fas fa-camera text-gray-400 text-2xl mb-2"></i>
-                                <div class="flex flex-col items-center text-sm text-gray-600">
-                                    <button type="button" 
-                                        id="capture_button"
-                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-1">
-                                        <i class="fas fa-camera mr-2"></i>
-                                        Take Photo
-                                    </button>
-                                    <input type="file" 
-                                        id="receipt_image" 
-                                        name="receipt_image" 
-                                        accept="image/*" 
-                                        capture="environment"
-                                        class="hidden">
-                                </div>
-                            </div>
-                            <div id="image_preview" class="hidden mt-3 w-full max-w-sm mx-auto">
-                                <div class="relative">
-                                    <img src="" alt="Receipt preview" class="w-full rounded-lg shadow-sm">
-                                    <button type="button" 
-                                        id="retake_button"
-                                        class="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                        <i class="fas fa-redo"></i>
-                                    </button>
-                                </div>
-                            </div>
+                    <label for="receipt_image" class="block text-sm font-medium text-gray-700 mb-1">Receipt Image</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-image text-gray-400"></i>
+                        </div>
+                        <input type="file" 
+                            name="receipt_image" 
+                            id="receipt_image" 
+                            accept="image/jpeg,image/png"
+                            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-xs"
+                            onchange="previewImage(this)">
+                    </div>
+                    <div id="imagePreview" class="mt-2 hidden">
+                        <img id="preview" src="#" alt="Preview" class="max-w-full h-auto rounded-lg shadow-sm">
+                        <div class="mt-1 text-sm text-gray-500">
+                            <span id="imageDimensions"></span> • 
+                            <span id="imageSize"></span>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex justify-end">
-                    <button type="submit" 
-                        id="submitButton"
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span class="inline-flex items-center">
-                            <span class="normal-state">Add Transaction</span>
-                            <span class="loading-state hidden">
-                                <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Processing...
-                            </span>
-                        </span>
+                    <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200">
+                        <i class="fas fa-plus-circle mr-2"></i>
+                        Add Transaction
                     </button>
                 </div>
             </form>
+
+            <script>
+                async function compressImage(file) {
+                    return new Promise((resolve) => {
+                        const maxWidth = 800; // Maximum width for the image
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = function(e) {
+                            const img = new Image();
+                            img.src = e.target.result;
+                            img.onload = function() {
+                                const canvas = document.createElement('canvas');
+                                let width = img.width;
+                                let height = img.height;
+
+                                // Calculate new dimensions
+                                if (width > maxWidth) {
+                                    height = Math.round((height * maxWidth) / width);
+                                    width = maxWidth;
+                                }
+
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+
+                                // Convert to Blob with compression
+                                canvas.toBlob((blob) => {
+                                    resolve(blob);
+                                }, file.type, 0.7); // 0.7 is the quality (70%)
+                            };
+                        };
+                    });
+                }
+
+                async function previewImage(input) {
+                    const preview = document.getElementById('preview');
+                    const imagePreview = document.getElementById('imagePreview');
+                    const dimensionsSpan = document.getElementById('imageDimensions');
+                    const sizeSpan = document.getElementById('imageSize');
+
+                    if (input.files && input.files[0]) {
+                        const file = input.files[0];
+                        
+                        // Show original file size
+                        const originalSize = (file.size / 1024).toFixed(2);
+                        
+                        // Compress the image
+                        const compressedBlob = await compressImage(file);
+                        const compressedSize = (compressedBlob.size / 1024).toFixed(2);
+                        
+                        // Create a new File object from the compressed blob
+                        const compressedFile = new File([compressedBlob], file.name, {
+                            type: file.type,
+                            lastModified: new Date().getTime()
+                        });
+                        
+                        // Replace the file input's file with the compressed one
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(compressedFile);
+                        input.files = dataTransfer.files;
+
+                        // Preview the compressed image
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            preview.src = e.target.result;
+                            imagePreview.classList.remove('hidden');
+                            
+                            // Get image dimensions
+                            const img = new Image();
+                            img.onload = function() {
+                                dimensionsSpan.textContent = this.width + 'x' + this.height + 'px';
+                                sizeSpan.textContent = `${compressedSize} KB (reduced from ${originalSize} KB)`;
+                            }
+                            img.src = e.target.result;
+                        }
+                        reader.readAsDataURL(compressedFile);
+                    } else {
+                        imagePreview.classList.add('hidden');
+                        preview.src = '#';
+                        dimensionsSpan.textContent = '';
+                        sizeSpan.textContent = '';
+                    }
+                }
+
+                // Add form submit handler to show loading state
+                document.getElementById('transactionForm').addEventListener('submit', function(e) {
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = `
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                    `;
+                });
+            </script>
 
             <!-- Success Toast Notification -->
             <div id="successToast" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 max-w-sm w-full scale-0 opacity-0 transition-all duration-300 z-50">
