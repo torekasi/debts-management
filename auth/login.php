@@ -125,28 +125,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo APP_NAME; ?> - Login</title>
     
-    <!-- PWA Meta Tags -->
-    <meta name="description" content="Mini Market 3099">
-    <meta name="theme-color" content="#4f46e5">
-    
-    <!-- iOS Meta Tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="3099">
-    
-    <!-- iOS Icons -->
-    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-152x152.png">
-    
-    <!-- iOS Splash Screens -->
-    <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
-    
-    <!-- PWA Links -->
-    <link rel="manifest" href="/manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
-    
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="h-full">
@@ -256,10 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.2.15</p>
-                        <button id="pwa-install-btn" class="mt-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-md shadow-sm transition-colors">
-                            Install App
-                        </button>
+                        <p class="text-xs text-gray-500">Version 1.2.16</p>
                     </div>
                 </div>
             </form>
@@ -267,132 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script type="text/javascript">
-        // PWA Installation
-        let deferredPrompt;
-        const installButton = document.getElementById('pwa-install-btn');
-
-        // Function to show iOS installation instructions
-        function showIOSInstallInstructions() {
-            alert('To install this app on iOS:\n\n1. Tap the Share button at the bottom of your browser\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
-        }
-
-        // Check if the device is iOS
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-        // Handle install button click
-        installButton.addEventListener('click', async () => {
-            if (isIOS) {
-                showIOSInstallInstructions();
-            } else if (deferredPrompt) {
-                // Show the install prompt
-                deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('App was installed');
-                }
-                // Clear the deferredPrompt
-                deferredPrompt = null;
-            } else {
-                alert('This app is already installed or installation is not supported on your device.');
-            }
-        });
-
-        // Handle beforeinstallprompt event
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later
-            deferredPrompt = e;
-        });
-
-        // Handle successful installation
-        window.addEventListener('appinstalled', (evt) => {
-            console.log('App successfully installed');
-            // Clear the deferredPrompt
-            deferredPrompt = null;
-        });
-
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', async () => {
-                try {
-                    const registration = await navigator.serviceWorker.register('/sw.js', {
-                        scope: '/'
-                    });
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                } catch (error) {
-                    console.error('ServiceWorker registration failed: ', error);
-                }
-            });
-        }
-
-        // Google Translate Functions
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'en',
-                includedLanguages: 'en,hi,ne,my',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-                autoDisplay: false
-            }, 'google_translate_element');
-
-            // Hide Google Translate elements
-            const style = document.createElement('style');
-            style.textContent = `
-                .skiptranslate,
-                .goog-te-banner-frame {
-                    display: none !important;
-                }
-                body {
-                    top: 0px !important;
-                }
-                .VIpgJd-ZVi9od-l4eHX-hSRGPd,
-                .goog-te-gadget {
-                    display: none !important;
-                }
-                iframe[name="google_translation_frame"] {
-                    display: none !important;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        function translateTo(lang) {
-            const hostname = window.location.hostname;
-            const domain = hostname.split('.').slice(-2).join('.');
-            const domains = [hostname, '.' + hostname, domain, '.' + domain];
-            
-            domains.forEach(dom => {
-                document.cookie = `googtrans=/en/${lang}; path=/; domain=${dom}`;
-                document.cookie = `googtrans=/en/${lang}; path=/;`;
-            });
-
-            window.location.reload();
-        }
-
-        // Account Switching Function
-        function switchAccount(index) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'select_session.php';
-            
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected_session';
-            input.value = index;
-            
-            form.appendChild(input);
-            document.body.appendChild(form);
-            form.submit();
-        }
-
-        // Load Google Translate
-        window.addEventListener('load', function() {
-            const script = document.createElement('script');
-            script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-            script.async = true;
-            document.body.appendChild(script);
-        });
+        // Translation related code can stay here if needed
     </script>
 </body>
 </html>
