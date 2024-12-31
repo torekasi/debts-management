@@ -245,70 +245,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.2.11</p>
+                        <p class="text-xs text-gray-500">Version 1.2.13</p>
+                        <button id="pwa-install-btn" class="mt-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-md shadow-sm transition-colors">
+                            Install App
+                        </button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- PWA Install Prompt -->
-    <div id="pwa-install-prompt" class="fixed bottom-0 left-0 right-0 bg-indigo-600 text-white p-4 flex justify-between items-center transform translate-y-full transition-transform duration-300 ease-in-out">
-        <div class="flex-1">
-            <p class="font-medium">Install App for Better Experience</p>
-            <p class="text-sm text-indigo-100">Access <?php echo APP_NAME; ?> directly from your home screen</p>
-        </div>
-        <div class="flex space-x-2 ml-4">
-            <button onclick="installPWA()" class="px-4 py-2 bg-white text-indigo-600 rounded-lg font-medium hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-600">
-                Install
-            </button>
-            <button onclick="dismissInstallPrompt()" class="px-4 py-2 border border-white rounded-lg font-medium hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-600">
-                Later
-            </button>
-        </div>
-    </div>
-
-    <!-- Hidden Google Translate Element -->
-    <div id="google_translate_element" class="hidden"></div>
-
-    <!-- PWA and Translation Scripts -->
     <script type="text/javascript">
         // PWA Installation
         let deferredPrompt;
-        const installPrompt = document.getElementById('pwa-install-prompt');
-        
+        const installButton = document.getElementById('pwa-install-btn');
+
         window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
             e.preventDefault();
+            // Stash the event so it can be triggered later
             deferredPrompt = e;
-            
-            // Show the install prompt if not previously dismissed
-            if (!localStorage.getItem('pwa-prompt-dismissed')) {
-                showInstallPrompt();
+        });
+
+        installButton.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                // Show the install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                // We no longer need the prompt. Clear it up
+                deferredPrompt = null;
+            } else {
+                // If deferredPrompt is not available, the app might be already installed
+                // or the browser doesn't support PWA installation
+                alert('This app cannot be installed right now. It might be already installed or your browser may not support this feature.');
             }
         });
 
-        function showInstallPrompt() {
-            installPrompt.style.transform = 'translateY(0)';
-        }
-
-        function dismissInstallPrompt() {
-            installPrompt.style.transform = 'translateY(100%)';
-            localStorage.setItem('pwa-prompt-dismissed', 'true');
-        }
-
-        async function installPWA() {
-            if (!deferredPrompt) return;
-            
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            
-            if (outcome === 'accepted') {
-                console.log('PWA installed successfully');
-            }
-            
+        window.addEventListener('appinstalled', () => {
+            // Clear the deferredPrompt
             deferredPrompt = null;
-            dismissInstallPrompt();
-        }
+            alert('Thank you for installing our app!');
+        });
 
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
