@@ -1,5 +1,5 @@
-const CACHE_NAME = 'debt-ms-v1';
-const ASSETS_CACHE = 'debt-ms-assets-v1';
+const CACHE_NAME = '3099-ms-v1';
+const ASSETS_CACHE = '3099-assets-v1';
 
 // Assets to cache
 const assetsToCache = [

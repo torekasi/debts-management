@@ -1,7 +1,9 @@
 {
     "name": "Market 3099",
-    "short_name": "DebtMS",
-    "description": "Manage and track debts efficiently",
+    "short_name": "3099",
+    "description": "Mini Market 3099",
+    "scope": "/",
+    "lang": "en",
     "start_url": "/auth/login.php",
     "display": "standalone",
     "background_color": "#ffffff",
