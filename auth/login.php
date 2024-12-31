@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.2.13</p>
+                        <p class="text-xs text-gray-500">Version 1.2.14</p>
                         <button id="pwa-install-btn" class="mt-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-md shadow-sm transition-colors">
                             Install App
                         </button>
