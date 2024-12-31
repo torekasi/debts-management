@@ -196,19 +196,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 class="w-full flex items-center p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 transition-colors duration-200 border-2 border-gray-200 hover:border-indigo-300 shadow-sm">
                             <div class="flex-1">
                                 <div class="font-medium text-gray-900">
-                                    <?php echo htmlspecialchars($session['full_name']); ?>
+                                    <?php echo htmlspecialchars($session['full_name']); ?> (<?php echo htmlspecialchars($session['member_id']); ?>)
                                 </div>
-                                <div class="text-sm text-gray-500">
-                                    <?php echo htmlspecialchars($session['member_id']); ?>
-                                </div>
-                                <div class="text-xs text-indigo-600 mt-1">
-                                    <?php echo ucfirst(htmlspecialchars($session['role'])); ?>
-                                </div>
-                            </div>
-                            <div class="ml-4 text-indigo-600">
-                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                                </svg>
                             </div>
                         </button>
                         <?php endforeach; ?>
@@ -251,9 +240,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div>
-                    <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Sign in
                     </button>
+                    
+                    <div class="text-center mt-2">
+                        <p class="text-xs text-gray-500">Version 1.2.11</p>
+                    </div>
                 </div>
             </form>
         </div>
