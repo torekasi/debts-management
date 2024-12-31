@@ -6,27 +6,14 @@ ini_set('display_errors', 1);
 // Start session
 session_start();
 
-// Clear any existing session data
-session_unset();
+// Initialize active sessions array if not exists
+if (!isset($_SESSION['active_sessions'])) {
+    $_SESSION['active_sessions'] = [];
+}
 
 // Set base path and include required files
 $base_path = dirname(dirname(__FILE__));
 require_once $base_path . '/includes/config.php';
-
-// Function to check if the session is active and redirect accordingly
-function checkSessionAndRedirect() {
-    if (isset($_SESSION['user_id'])) {
-        if ($_SESSION['role'] === 'admin') {
-            header('Location: ../admin/dashboard.php');
-        } else {
-            header('Location: ../member/member_dashboard.php');
-        }
-        exit();
-    }
-}
-
-// Check session status on page load
-checkSessionAndRedirect();
 
 try {
     $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
@@ -68,12 +55,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit();
                 }
 
-                // Set session variables
+                // Check if this account is already in active sessions
+                $existing_session_index = -1;
+                foreach ($_SESSION['active_sessions'] as $index => $session) {
+                    if ($session['user_id'] === $user['id']) {
+                        $existing_session_index = $index;
+                        break;
+                    }
+                }
+
+                // Create session data
+                $session_data = [
+                    'user_id' => $user['id'],
+                    'member_id' => $user['member_id'],
+                    'full_name' => $user['full_name'],
+                    'role' => $user['role'],
+                    'status' => $user['status'],
+                    'login_time' => time()
+                ];
+
+                // If user already has a session, update it
+                if ($existing_session_index >= 0) {
+                    $_SESSION['active_sessions'][$existing_session_index] = $session_data;
+                    $selected_index = $existing_session_index;
+                } else {
+                    // Add new session
+                    $_SESSION['active_sessions'][] = $session_data;
+                    $selected_index = count($_SESSION['active_sessions']) - 1;
+                }
+
+                // Set current session
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['member_id'] = $user['member_id'];
                 $_SESSION['full_name'] = $user['full_name'];
                 $_SESSION['role'] = $user['role'];
-                $_SESSION['status'] = $user['status'];
+                $_SESSION['logged_in'] = true;
 
                 // Log the successful login
                 $stmt = $pdo->prepare("
@@ -88,9 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Redirect based on role
                 if ($user['role'] === 'admin') {
-                    header('Location: ../admin/dashboard.php');
+                    header('Location: /admin/dashboard.php');
                 } else {
-                    header('Location: ../member/member_dashboard.php');
+                    header('Location: /member/member_dashboard.php');
                 }
                 exit();
             } else {
@@ -102,66 +118,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-gray-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - <?php echo APP_NAME; ?></title>
+    <title><?php echo APP_NAME; ?> - Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Hide Google Translate elements */
-        .goog-te-banner-frame,
-        .skiptranslate,
-        .goog-te-spinner-pos,
-        .goog-tooltip,
-        .goog-tooltip:hover,
-        .goog-text-highlight {
-            display: none !important;
-        }
-        
-        body {
-            top: 0 !important;
-            position: static !important;
-        }
-
-        /* Hide Google branding */
-        .goog-logo-link {
-            display: none !important;
-        }
-        .goog-te-gadget {
-            color: transparent !important;
-        }
-        
-        /* Hide the default Google Translate dropdown */
-        #google_translate_element {
-            position: absolute;
-            top: -9999px;
-            left: -9999px;
-            visibility: hidden;
-        }
-    </style>
 </head>
-<body class="bg-gray-100">
-    <!-- Hidden Google Translate Element -->
-    <div id="google_translate_element" class="hidden"></div>
-
+<body class="h-full">
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
-            <?php if (isset($_SESSION['success_message'])): ?>
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                    <span class="block sm:inline"><?php echo $_SESSION['success_message']; ?></span>
-                    <?php unset($_SESSION['success_message']); ?>
+            <!-- Language Selection -->
+            <div class="text-center mb-8">
+                <p class="text-sm text-gray-600 mb-3">Select Your Language:</p>
+                <div class="flex justify-center items-center space-x-4">
+                    <button onclick="translateTo('en')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
+                        <img src="https://flagcdn.com/w40/gb.png" alt="English" class="w-full h-full object-cover">
+                    </button>
+                    <button onclick="translateTo('ms')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
+                        <img src="https://flagcdn.com/w40/my.png" alt="Malay" class="w-full h-full object-cover">
+                    </button>
+                    <button onclick="translateTo('ne')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
+                        <img src="https://flagcdn.com/w40/np.png" alt="Nepali" class="w-full h-full object-cover">
+                    </button>
+                    <button onclick="translateTo('my')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
+                        <img src="https://flagcdn.com/w40/mm.png" alt="Burmese" class="w-full h-full object-cover">
+                    </button>
                 </div>
-            <?php endif; ?>
-            
-            <?php if ($error): ?>
+            </div>
+
+            <!-- Title -->
+            <div>
+                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                    Sign in to <?php echo APP_NAME; ?>
+                </h2>
+            </div>
+
+            <!-- Error Messages -->
+            <?php if (!empty($error)): ?>
                 <div class="rounded-md bg-red-50 p-4">
                     <div class="flex">
                         <div class="flex-shrink-0">
@@ -170,88 +165,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </svg>
                         </div>
                         <div class="ml-3">
-                            <h3 class="text-sm font-medium text-red-800"><?php echo htmlspecialchars($error); ?></h3>
+                            <p class="text-sm font-medium text-red-800"><?php echo htmlspecialchars($error); ?></p>
                         </div>
                     </div>
                 </div>
             <?php endif; ?>
-            <!-- Language Selection -->
-            <div class="text-center mb-8">
-                <p class="text-sm text-gray-600 mb-3">Select Your Language:</p>
-                <div class="flex justify-center items-center space-x-4">
-                    <button onclick="translateTo('en')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="English">
-                        <img src="https://flagcdn.com/w40/gb.png" alt="English" class="w-full h-full object-cover">
-                    </button>
-                    <button onclick="translateTo('ms')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Malay">
-                        <img src="https://flagcdn.com/w40/my.png" alt="Malay" class="w-full h-full object-cover">
-                    </button>
-                    <button onclick="translateTo('ne')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Nepali">
-                        <img src="https://flagcdn.com/w40/np.png" alt="Nepali" class="w-full h-full object-cover">
-                    </button>
-                    <button onclick="translateTo('my')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Burmese">
-                        <img src="https://flagcdn.com/w40/mm.png" alt="Burmese" class="w-full h-full object-cover">
-                    </button>
+
+            <!-- Active Sessions -->
+            <?php if (isset($_SESSION['active_sessions']) && count($_SESSION['active_sessions']) > 0): ?>
+            <div class="bg-white shadow-lg rounded-lg overflow-hidden border-2 border-indigo-200">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4 border-b-2 border-indigo-100 pb-2">
+                        Continue with existing account
+                    </h3>
+                    <div class="space-y-3">
+                        <?php foreach ($_SESSION['active_sessions'] as $index => $session): ?>
+                        <button onclick="switchAccount(<?php echo $index; ?>)" 
+                                class="w-full flex items-center p-4 bg-gray-50 rounded-lg hover:bg-indigo-50 transition-colors duration-200 border-2 border-gray-200 hover:border-indigo-300 shadow-sm">
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">
+                                    <?php echo htmlspecialchars($session['full_name']); ?>
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    <?php echo htmlspecialchars($session['member_id']); ?>
+                                </div>
+                                <div class="text-xs text-indigo-600 mt-1">
+                                    <?php echo ucfirst(htmlspecialchars($session['role'])); ?>
+                                </div>
+                            </div>
+                            <div class="ml-4 text-indigo-600">
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
-            <div>
-                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Sign in to your account
-                </h2>
-                <p class="mt-2 text-center text-sm text-gray-600">
-                    Enter your Phone Number & Password
-                </p>
+
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-2 bg-gray-50 text-gray-500">Or login with different account</span>
+                </div>
             </div>
-            <form class="mt-8 space-y-6" action="login.php" method="POST">
+            <?php endif; ?>
+
+            <!-- Login Form -->
+            <form class="mt-8 space-y-6" action="" method="POST">
+                <input type="hidden" name="remember" value="true">
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
-                        <label for="identifier" class="block text-sm font-medium text-gray-700 mb-2">
-                            Username or Member ID
-                        </label>
+                        <label for="identifier" class="sr-only">Username or Member ID</label>
                         <input id="identifier" 
                                name="identifier" 
                                type="text" 
                                required 
-                               class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400" 
-                               placeholder="Enter your Username or Member ID">
-                    </div><br>
-                    <div class="mt-4">
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                            Password
-                        </label>
-                        <div class="relative">
-                            <input id="password" 
-                                   name="password" 
-                                   type="password" 
-                                   required 
-                                   class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-4 pr-12 py-3 sm:text-sm border-2 border-gray-300 rounded-lg transition duration-150 ease-in-out hover:border-gray-400" 
-                                   placeholder="Enter your password">
-                            <button type="button" 
-                                    class="absolute inset-y-0 right-0 pr-3 flex items-center" 
-                                    onclick="togglePassword('password')">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                            </button>
-                        </div>
+                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" 
+                               placeholder="Username or Member ID">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Password</label>
+                        <input id="password" 
+                               name="password" 
+                               type="password" 
+                               required 
+                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" 
+                               placeholder="Password">
                     </div>
                 </div>
 
                 <div>
-                    <button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                    <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Sign in
                     </button>
                 </div>
             </form>
-            <div class="text-center">
-                <p class="mt-2 text-sm text-gray-600">
-                    Need help? Contact your administrator
-                </p>
-            </div>
         </div>
     </div>
 
+    <!-- Hidden Google Translate Element -->
+    <div id="google_translate_element" class="hidden"></div>
+
+    <!-- Translation Script -->
     <script type="text/javascript">
+        // Google Translate Functions
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'en',
@@ -262,7 +263,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         function translateTo(lang) {
-            // Set cookies in all possible domains
             const hostname = window.location.hostname;
             const domain = hostname.split('.').slice(-2).join('.');
             const domains = [hostname, '.' + hostname, domain, '.' + domain];
@@ -272,45 +272,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.cookie = `googtrans=/en/${lang}; path=/;`;
             });
 
-            // Refresh the page to apply translation
             window.location.reload();
         }
 
-        // Initialize
+        // Account Switching Function
+        function switchAccount(index) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'select_session.php';
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_session';
+            input.value = index;
+            
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Load Google Translate
         window.addEventListener('load', function() {
-            // Load Google Translate script
             const script = document.createElement('script');
             script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
             script.async = true;
             document.body.appendChild(script);
-
-            // Wait for Google Translate to initialize
-            let attempts = 0;
-            const checkGoogleTranslate = setInterval(function() {
-                if (document.querySelector('.goog-te-combo') || attempts > 10) {
-                    clearInterval(checkGoogleTranslate);
-                    // Remove any Google Translate banners
-                    const elements = document.getElementsByClassName('skiptranslate');
-                    for (let element of elements) {
-                        if (element.tagName === 'IFRAME') {
-                            element.style.display = 'none';
-                        }
-                    }
-                    document.body.style.top = '0px';
-                    document.body.style.position = 'static';
-                }
-                attempts++;
-            }, 1000);
         });
-
-        function togglePassword(inputId) {
-            const input = document.getElementById(inputId);
-            if (input.type === 'password') {
-                input.type = 'text';
-            } else {
-                input.type = 'password';
-            }
-        }
     </script>
 </body>
 </html>

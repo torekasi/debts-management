@@ -11,6 +11,29 @@
 <!-- Hidden Google Translate Element -->
 <div id="google_translate_element" class="hidden"></div>
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta name="bingbot" content="noindex, nofollow">
+    <title>Debt Management System</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Debt Management System for tracking and managing debts">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="DebtMS">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+</head>
+
 <style>
     /* Hide Google Translate elements */
     .goog-te-banner-frame,
@@ -43,6 +66,67 @@
         visibility: hidden;
     }
 </style>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- PWA Installation Script -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('ServiceWorker registration successful');
+                })
+                .catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
+
+    // PWA Installation prompt
+    let deferredPrompt;
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Show installation prompt if not installed
+        if (!localStorage.getItem('pwa-installed')) {
+            showInstallPrompt();
+        }
+    });
+
+    function showInstallPrompt() {
+        if (deferredPrompt) {
+            const promptDiv = document.createElement('div');
+            promptDiv.className = 'fixed bottom-0 left-0 right-0 bg-indigo-600 text-white p-4 flex justify-between items-center z-50';
+            promptDiv.innerHTML = `
+                <div>Install this app on your device for better experience</div>
+                <div class="flex space-x-2">
+                    <button onclick="installPWA()" class="px-4 py-2 bg-white text-indigo-600 rounded">Install</button>
+                    <button onclick="closeInstallPrompt(this.parentElement.parentElement)" class="px-4 py-2 border border-white rounded">Later</button>
+                </div>
+            `;
+            document.body.appendChild(promptDiv);
+        }
+    }
+
+    function closeInstallPrompt(element) {
+        element.remove();
+    }
+
+    async function installPWA() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                localStorage.setItem('pwa-installed', 'true');
+                console.log('User accepted the installation prompt');
+            }
+            deferredPrompt = null;
+        }
+    }
+</script>
 
 <script type="text/javascript">
     function googleTranslateElementInit() {
