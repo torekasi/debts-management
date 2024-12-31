@@ -126,15 +126,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title><?php echo APP_NAME; ?> - Login</title>
     
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Manage and track debts efficiently">
+    <meta name="description" content="Mini Market 3099">
     <meta name="theme-color" content="#4f46e5">
+    
+    <!-- iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="DebtMS">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="3099">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-152x152.png">
+    
+    <!-- iOS Splash Screens -->
+    <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
     
     <!-- PWA Links -->
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -245,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.2.14</p>
+                        <p class="text-xs text-gray-500">Version 1.2.15</p>
                         <button id="pwa-install-btn" class="mt-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-md shadow-sm transition-colors">
                             Install App
                         </button>
@@ -260,6 +271,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let deferredPrompt;
         const installButton = document.getElementById('pwa-install-btn');
 
+        // Function to show iOS installation instructions
+        function showIOSInstallInstructions() {
+            alert('To install this app on iOS:\n\n1. Tap the Share button at the bottom of your browser\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+        }
+
+        // Check if the device is iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        // Handle install button click
+        installButton.addEventListener('click', async () => {
+            if (isIOS) {
+                showIOSInstallInstructions();
+            } else if (deferredPrompt) {
+                // Show the install prompt
+                deferredPrompt.prompt();
+                // Wait for the user to respond to the prompt
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('App was installed');
+                }
+                // Clear the deferredPrompt
+                deferredPrompt = null;
+            } else {
+                alert('This app is already installed or installation is not supported on your device.');
+            }
+        });
+
+        // Handle beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
             // Prevent Chrome 67 and earlier from automatically showing the prompt
             e.preventDefault();
@@ -267,25 +306,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             deferredPrompt = e;
         });
 
-        installButton.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                // Show the install prompt
-                deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
-                const { outcome } = await deferredPrompt.userChoice;
-                // We no longer need the prompt. Clear it up
-                deferredPrompt = null;
-            } else {
-                // If deferredPrompt is not available, the app might be already installed
-                // or the browser doesn't support PWA installation
-                alert('This app cannot be installed right now. It might be already installed or your browser may not support this feature.');
-            }
-        });
-
-        window.addEventListener('appinstalled', () => {
+        // Handle successful installation
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('App successfully installed');
             // Clear the deferredPrompt
             deferredPrompt = null;
-            alert('Thank you for installing our app!');
         });
 
         // Service Worker Registration
@@ -296,14 +321,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         scope: '/'
                     });
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    
-                    // Check if the app can be installed
-                    window.addEventListener('beforeinstallprompt', (e) => {
-                        // Prevent Chrome 67 and earlier from automatically showing the prompt
-                        e.preventDefault();
-                        // Stash the event so it can be triggered later
-                        deferredPrompt = e;
-                    });
                 } catch (error) {
                     console.error('ServiceWorker registration failed: ', error);
                 }

@@ -1,5 +1,5 @@
 {
-    "name": "Market 3099",
+    "name": "3099",
     "short_name": "3099",
     "description": "Mini Market 3099",
     "scope": "/",
@@ -9,9 +9,16 @@
     "background_color": "#ffffff",
     "theme_color": "#4f46e5",
     "orientation": "portrait",
-    "display_override": ["standalone", "browser"],
+    "display_override": ["standalone", "minimal-ui", "browser"],
     "categories": ["business", "finance"],
     "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "3099",
+            "url": "/auth/login.php",
+            "description": "Mini Market 3099"
+        }
+    ],
     "icons": [
         {
             "src": "/icons/icon-72x72.png",
