@@ -1,9 +1,12 @@
 <header class="fixed top-0 left-0 right-0 bg-white shadow-md z-50">
     <div class="container mx-auto px-4 py-3 max-w-md md:max-w-[650px]">
         <div class="flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">
+            <a href="/index.php" class="text-gray-800 hover:text-gray-600">
+                <h1 class="text-2xl font-bold text-gray-800">
                 <?php echo APP_NAME; ?>
-            </h1>
+                </h1>
+            </a>
+ 
         </div>
     </div>
 </header>

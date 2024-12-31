@@ -124,6 +124,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo APP_NAME; ?> - Login</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Manage and track debts efficiently">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="DebtMS">
+    
+    <!-- PWA Links -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="h-full">
@@ -136,8 +148,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button onclick="translateTo('en')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
                         <img src="https://flagcdn.com/w40/gb.png" alt="English" class="w-full h-full object-cover">
                     </button>
-                    <button onclick="translateTo('ms')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
-                        <img src="https://flagcdn.com/w40/my.png" alt="Malay" class="w-full h-full object-cover">
+                    <button onclick="translateTo('hi')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
+                        <img src="https://flagcdn.com/w40/in.png" alt="Hindi" class="w-full h-full object-cover">
                     </button>
                     <button onclick="translateTo('ne')" class="w-10 h-10 rounded-full overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 border-2 border-gray-200">
                         <img src="https://flagcdn.com/w40/np.png" alt="Nepali" class="w-full h-full object-cover">
@@ -175,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if (isset($_SESSION['active_sessions']) && count($_SESSION['active_sessions']) > 0): ?>
             <div class="bg-white shadow-lg rounded-lg overflow-hidden border-2 border-indigo-200">
                 <div class="px-4 py-5 sm:p-6">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4 border-b-2 border-indigo-100 pb-2">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4 border-b-2 border-indigo-100 pb-2 text-center">
                         Continue with existing account
                     </h3>
                     <div class="space-y-3">
@@ -247,19 +259,105 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
+    <!-- PWA Install Prompt -->
+    <div id="pwa-install-prompt" class="fixed bottom-0 left-0 right-0 bg-indigo-600 text-white p-4 flex justify-between items-center transform translate-y-full transition-transform duration-300 ease-in-out">
+        <div class="flex-1">
+            <p class="font-medium">Install App for Better Experience</p>
+            <p class="text-sm text-indigo-100">Access <?php echo APP_NAME; ?> directly from your home screen</p>
+        </div>
+        <div class="flex space-x-2 ml-4">
+            <button onclick="installPWA()" class="px-4 py-2 bg-white text-indigo-600 rounded-lg font-medium hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-600">
+                Install
+            </button>
+            <button onclick="dismissInstallPrompt()" class="px-4 py-2 border border-white rounded-lg font-medium hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-600">
+                Later
+            </button>
+        </div>
+    </div>
+
     <!-- Hidden Google Translate Element -->
     <div id="google_translate_element" class="hidden"></div>
 
-    <!-- Translation Script -->
+    <!-- PWA and Translation Scripts -->
     <script type="text/javascript">
+        // PWA Installation
+        let deferredPrompt;
+        const installPrompt = document.getElementById('pwa-install-prompt');
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Show the install prompt if not previously dismissed
+            if (!localStorage.getItem('pwa-prompt-dismissed')) {
+                showInstallPrompt();
+            }
+        });
+
+        function showInstallPrompt() {
+            installPrompt.style.transform = 'translateY(0)';
+        }
+
+        function dismissInstallPrompt() {
+            installPrompt.style.transform = 'translateY(100%)';
+            localStorage.setItem('pwa-prompt-dismissed', 'true');
+        }
+
+        async function installPWA() {
+            if (!deferredPrompt) return;
+            
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                console.log('PWA installed successfully');
+            }
+            
+            deferredPrompt = null;
+            dismissInstallPrompt();
+        }
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.error('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
         // Google Translate Functions
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
                 pageLanguage: 'en',
-                includedLanguages: 'en,ms,ne,my',
+                includedLanguages: 'en,hi,ne,my',
                 layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
                 autoDisplay: false
             }, 'google_translate_element');
+
+            // Hide Google Translate elements
+            const style = document.createElement('style');
+            style.textContent = `
+                .skiptranslate,
+                .goog-te-banner-frame {
+                    display: none !important;
+                }
+                body {
+                    top: 0px !important;
+                }
+                .VIpgJd-ZVi9od-l4eHX-hSRGPd,
+                .goog-te-gadget {
+                    display: none !important;
+                }
+                iframe[name="google_translation_frame"] {
+                    display: none !important;
+                }
+            `;
+            document.head.appendChild(style);
         }
 
         function translateTo(lang) {

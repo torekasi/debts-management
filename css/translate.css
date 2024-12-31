@@ -1,0 +1,14 @@
+.skiptranslate,
+.goog-te-banner-frame {
+    display: none !important;
+}
+body {
+    top: 0px !important;
+}
+.VIpgJd-ZVi9od-l4eHX-hSRGPd,
+.goog-te-gadget {
+    display: none !important;
+}
+iframe[name="google_translation_frame"] {
+    display: none !important;
+}
