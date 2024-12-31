@@ -242,7 +242,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script type="text/javascript">
-        // Translation related code can stay here if needed
+        // Account Switching Function
+        function switchAccount(index) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'select_session.php';
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_session';
+            input.value = index;
+            
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Translation Functions
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'en,hi,ne,my',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+
+        function translateTo(lang) {
+            const hostname = window.location.hostname;
+            const domain = hostname.split('.').slice(-2).join('.');
+            const domains = [hostname, '.' + hostname, domain, '.' + domain];
+            
+            domains.forEach(dom => {
+                document.cookie = `googtrans=/en/${lang}; path=/; domain=${dom}`;
+                document.cookie = `googtrans=/en/${lang}; path=/;`;
+            });
+
+            window.location.reload();
+        }
+
+        // Load Google Translate
+        window.addEventListener('load', function() {
+            const script = document.createElement('script');
+            script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+            script.async = true;
+            document.body.appendChild(script);
+        });
     </script>
 </body>
 </html>
