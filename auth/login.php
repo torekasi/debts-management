@@ -290,14 +290,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Service Worker Registration
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful');
-                    })
-                    .catch(err => {
-                        console.error('ServiceWorker registration failed: ', err);
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js', {
+                        scope: '/'
                     });
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    
+                    // Check if the app can be installed
+                    window.addEventListener('beforeinstallprompt', (e) => {
+                        // Prevent Chrome 67 and earlier from automatically showing the prompt
+                        e.preventDefault();
+                        // Stash the event so it can be triggered later
+                        deferredPrompt = e;
+                    });
+                } catch (error) {
+                    console.error('ServiceWorker registration failed: ', error);
+                }
             });
         }
 
