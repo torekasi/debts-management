@@ -1,0 +1,39 @@
+# Configuration files
+/config/config.php
+/includes/config.php
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Logs
+/logs/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Uploaded files
+/uploads/
+/public/uploads/
+
+# Cache files
+*.cache
+.phpunit.result.cache
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

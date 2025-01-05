@@ -1,0 +1,213 @@
+/* TailAdmin Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+:root {
+    --primary-color: #3C50E0;
+    --secondary-color: #5B6B98;
+    --accent-color: #10B981;
+    --warning-color: #FFA70B;
+    --danger-color: #DC3545;
+    --success-color: #219653;
+    --info-color: #2F80ED;
+    --dark-color: #1C2434;
+    --body-color: #64748B;
+    --border-color: #E2E8F0;
+    --stroke-color: #DEE4EE;
+}
+
+/* Base Styles */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #F1F5F9;
+    color: var(--body-color);
+}
+
+/* Sidebar Styles */
+.sidebar {
+    @apply fixed left-0 top-0 z-50 h-screen w-[270px] bg-white transition-all duration-300;
+    box-shadow: 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.sidebar-header {
+    @apply flex h-[84px] items-center justify-between gap-2 px-6 py-6.5;
+}
+
+.sidebar-menu {
+    @apply flex flex-col gap-2 px-4 py-4;
+}
+
+.menu-item {
+    @apply flex items-center gap-2.5 py-2 px-4 text-sm font-medium duration-300 ease-in-out hover:bg-primary/5 rounded-md;
+    color: var(--body-color);
+}
+
+.menu-item.active {
+    @apply bg-primary/5 text-primary;
+}
+
+/* Header Styles */
+.header {
+    @apply fixed top-0 left-0 z-40 flex w-full bg-white drop-shadow-1;
+}
+
+.header-wrapper {
+    @apply flex h-[72px] w-full items-center justify-between px-8;
+}
+
+/* Main Content */
+.main-wrapper {
+    @apply flex h-screen overflow-hidden;
+}
+
+.content-wrapper {
+    @apply relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden;
+}
+
+.content {
+    @apply mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10;
+}
+
+/* Card Styles */
+.card {
+    @apply rounded-sm border border-stroke bg-white p-4 shadow-default;
+}
+
+/* Form Elements */
+.form-input {
+    @apply w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 outline-none focus:border-primary focus-visible:shadow-none;
+}
+
+.form-label {
+    @apply mb-2.5 block font-medium text-black;
+}
+
+/* Button Styles */
+.btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-primary px-6 py-4 text-white hover:bg-opacity-90;
+}
+
+.btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-stroke px-6 py-4 hover:bg-opacity-50;
+}
+
+/* Table Styles */
+.table-wrapper {
+    @apply rounded-sm border border-stroke bg-white px-5 pt-6 pb-2.5 shadow-default sm:px-7.5 xl:pb-1;
+}
+
+.table {
+    @apply w-full table-auto;
+}
+
+.table-head {
+    @apply bg-gray-2 text-left;
+}
+
+.table-row {
+    @apply border-b border-stroke hover:bg-gray-2;
+}
+
+.table-cell {
+    @apply py-5 px-4;
+}
+
+/* Badge Styles */
+.badge {
+    @apply inline-flex rounded px-2.5 py-1 text-sm font-medium;
+}
+
+.badge-success {
+    @apply bg-success/10 text-success;
+}
+
+.badge-warning {
+    @apply bg-warning/10 text-warning;
+}
+
+.badge-danger {
+    @apply bg-danger/10 text-danger;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    @apply mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.breadcrumb-title {
+    @apply text-2xl font-semibold text-black;
+}
+
+/* Chart Styles */
+.chart {
+    @apply relative;
+}
+
+/* Utility Classes */
+.shadow-default {
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.drop-shadow-1 {
+    filter: drop-shadow(0px 1px 3px rgba(0, 0, 0, 0.08));
+}
+
+/* Dark Mode Styles */
+.dark .card,
+.dark .sidebar,
+.dark .header {
+    @apply bg-boxdark;
+}
+
+.dark .table-row {
+    @apply border-strokedark hover:bg-meta-4;
+}
+
+.dark .form-input {
+    @apply border-strokedark bg-meta-4;
+}
+
+/* Login Page Specific */
+.auth-wrapper {
+    @apply relative flex min-h-screen;
+}
+
+.auth-form {
+    @apply w-full max-w-[500px] rounded-sm bg-white p-8 shadow-default;
+}
+
+.auth-header {
+    @apply mb-9;
+}
+
+.auth-title {
+    @apply mb-2 text-2xl font-bold text-black sm:text-title-xl2;
+}
+
+.auth-subtitle {
+    @apply font-medium;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .sidebar {
+        @apply -left-full;
+    }
+    
+    .sidebar.open {
+        @apply left-0;
+    }
+}
+
+/* Animation */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
