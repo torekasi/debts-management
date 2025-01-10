@@ -14,6 +14,10 @@ $offset_transactions = ($current_page_transactions - 1) * $items_per_page;
 $offset_activities = ($current_page_activities - 1) * $items_per_page;
 $offset_payments = ($current_page_payments - 1) * $items_per_page;
 
+// Date filter settings
+$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+
 // Database connection
 try {
     // For Aiven MySQL, we need to use SSL connection
@@ -39,8 +43,7 @@ try {
 $stats = [
     'total_users' => 0,
     'total_transactions' => 0,
-    'total_payments' => 0,
-    'outstanding_balance' => 0
+    'total_payments' => 0
 ];
 
 try {
@@ -48,16 +51,13 @@ try {
     $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'");
     $stats['total_users'] = $stmt->fetchColumn();
 
-    // Get total transactions amount
-    $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM transactions");
+    // Get total transactions
+    $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
     $stats['total_transactions'] = $stmt->fetchColumn();
 
     // Get total payments
     $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM payments");
     $stats['total_payments'] = $stmt->fetchColumn();
-
-    // Calculate outstanding balance
-    $stats['outstanding_balance'] = $stats['total_transactions'] - $stats['total_payments'];
 
     // Get monthly transactions and payments for the last 12 months
     $stmt = $pdo->query("
@@ -125,19 +125,24 @@ try {
     }
 
     // Get total number of transactions for pagination
-    $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE created_at BETWEEN :start_date AND :end_date");
+    $stmt->bindParam(':start_date', $start_date);
+    $stmt->bindParam(':end_date', $end_date);
+    $stmt->execute();
     $total_transactions = $stmt->fetchColumn();
     $total_pages_transactions = ceil($total_transactions / $items_per_page);
 
     // Get recent transactions with pagination
     $stmt = $pdo->prepare("
-        SELECT t.id, t.amount, t.description, t.image_path, t.date_transaction, u.full_name, u.id as user_id
+        SELECT t.id, t.amount, t.description, t.image_path, t.created_at, u.full_name
         FROM transactions t
         JOIN users u ON t.user_id = u.id
-        WHERE t.type != 'debt'
-        ORDER BY t.date_transaction DESC
+        WHERE t.type != 'debt' AND t.created_at BETWEEN :start_date AND :end_date
+        ORDER BY t.created_at DESC
         LIMIT :offset, :limit
     ");
+    $stmt->bindParam(':start_date', $start_date);
+    $stmt->bindParam(':end_date', $end_date);
     $stmt->bindValue(':offset', $offset_transactions, PDO::PARAM_INT);
     $stmt->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
     $stmt->execute();
@@ -184,6 +189,7 @@ try {
 }
 
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -192,6 +198,10 @@ try {
     <title>Admin Dashboard - <?php echo APP_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
     <style>
         .collapsed {
             display: none;
@@ -202,56 +212,59 @@ try {
     <div class="min-h-screen">
         <!-- Navigation -->
         <?php require_once 'template/header.php'; ?>
-        
+
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- Statistics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <!-- Total Payments recieved -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                                <i class="fas fa-hand-holding-usd text-white text-2xl"></i>
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Payments Recieved</dt>
-                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['total_payments'], 2); ?></dd>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_users']); ?></dd>
                                 </dl>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Total Amount -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
-                                <i class="fas fa-hand-holding-usd text-white text-2xl"></i>
+                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Transaction Amount</dt>
-                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['total_transactions'], 2); ?></dd>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
+                                    <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_transactions']); ?></dd>
                                 </dl>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Outstanding Balance -->
-                <div class="bg-green-100 overflow-hidden shadow rounded-lg">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-                                <i class="fas fa-balance-scale text-white text-2xl"></i>
+                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-green-700 truncate">Outstanding Balance</dt>
-                                    <dd class="text-lg font-semibold text-green-900">RM <?php echo number_format($stats['outstanding_balance'], 2); ?></dd>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
+                                    <dd class="text-lg font-medium text-gray-900">RM <?php echo number_format($stats['total_payments'], 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
@@ -281,13 +294,43 @@ try {
                     <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
                         <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
                             <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                                <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                                        <!-- Date Range Input -->
+                                        <div class="w-full sm:w-64">
+                                            <label for="date_range" class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                                            <input type="text" id="date_range" name="date_range" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-12 h-12 sm:text-sm border-2 border-gray-300 rounded-lg">
+                                        </div>
+                                        
+                                        <!-- Quick Filter Buttons -->
+                                        <div class="flex flex-wrap gap-2">
+                                            <button onclick="setDateRange('today')" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                                Today
+                                            </button>
+                                            <button onclick="setDateRange('this_week')" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                                This Week
+                                            </button>
+                                            <button onclick="setDateRange('this_month')" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                                This Month
+                                            </button>
+                                            <button onclick="setDateRange('last_month')" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                                Last Month
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Apply Filter Button -->
+                                        <button onclick="applyDateFilter()" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                            Apply Filter
+                                        </button>
+                                    </div>
+                                </div>
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Transaction</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                                         </tr>
                                     </thead>
@@ -295,9 +338,7 @@ try {
                                         <?php foreach ($recent_transactions as $transaction): ?>
                                         <tr class="hover:bg-green-100">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                <a href="/admin/user_dashboard.php?user_id=<?php echo $transaction['user_id']; ?>" class="text-blue-600 hover:text-blue-800">
-                                                    <?php echo htmlspecialchars($transaction['full_name'] ?? ''); ?>
-                                                </a>
+                                                <?php echo htmlspecialchars($transaction['full_name'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 RM <?php echo number_format($transaction['amount'] ?? 0, 2); ?>
@@ -306,7 +347,7 @@ try {
                                                 <?php echo htmlspecialchars($transaction['description'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('d M Y | h:i A', strtotime($transaction['date_transaction'] ?? '')); ?>
+                                                <?php echo date('d M Y | h:i A', strtotime($transaction['created_at'] ?? '')); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php if ($transaction['image_path']): ?>
@@ -323,13 +364,13 @@ try {
                             <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                                 <div class="flex-1 flex justify-between items-center">
                                     <?php if ($current_page_transactions > 1): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>&start_date=<?php echo $start_date; ?>&end_date=<?php echo $end_date; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
                                     <?php endif; ?>
                                     <span class="text-sm text-gray-700">
                                         Page <?php echo $current_page_transactions; ?> of <?php echo $total_pages_transactions; ?>
                                     </span>
                                     <?php if ($current_page_transactions < $total_pages_transactions): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>&start_date=<?php echo $start_date; ?>&end_date=<?php echo $end_date; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -358,6 +399,53 @@ try {
             </div>
 
             <script>
+                $(document).ready(function() {
+                    // Initialize date range picker
+                    $('#date_range').daterangepicker({
+                        startDate: '<?php echo $start_date; ?>',
+                        endDate: '<?php echo $end_date; ?>',
+                        locale: {
+                            format: 'YYYY-MM-DD'
+                        },
+                        ranges: {
+                            'Today': [moment(), moment()],
+                            'This Week': [moment().startOf('week'), moment().endOf('week')],
+                            'This Month': [moment().startOf('month'), moment().endOf('month')],
+                            'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                        }
+                    }, function(start, end) {
+                        window.location.href = '?start_date=' + start.format('YYYY-MM-DD') + '&end_date=' + end.format('YYYY-MM-DD');
+                    });
+                });
+
+                function setDateRange(range) {
+                    const picker = $('#date_range').data('daterangepicker');
+                    let start, end;
+                    
+                    switch(range) {
+                        case 'today':
+                            start = moment();
+                            end = moment();
+                            break;
+                        case 'this_week':
+                            start = moment().startOf('week');
+                            end = moment().endOf('week');
+                            break;
+                        case 'this_month':
+                            start = moment().startOf('month');
+                            end = moment().endOf('month');
+                            break;
+                        case 'last_month':
+                            start = moment().subtract(1, 'month').startOf('month');
+                            end = moment().subtract(1, 'month').endOf('month');
+                            break;
+                    }
+                    
+                    if (start && end) {
+                        window.location.href = '?start_date=' + start.format('YYYY-MM-DD') + '&end_date=' + end.format('YYYY-MM-DD');
+                    }
+                }
+
                 function showImageModal(imagePath) {
                     document.getElementById('modalImage').src = imagePath;
                     document.getElementById('imageModal').classList.remove('hidden');
@@ -365,6 +453,19 @@ try {
 
                 function closeImageModal() {
                     document.getElementById('imageModal').classList.add('hidden');
+                }
+
+                function toggleSection(section) {
+                    const content = document.getElementById(section + '-content');
+                    const icon = document.getElementById(section + '-icon');
+                    
+                    if (content.style.display === 'none') {
+                        content.style.display = 'block';
+                        icon.style.transform = 'rotate(180deg)';
+                    } else {
+                        content.style.display = 'none';
+                        icon.style.transform = 'rotate(0)';
+                    }
                 }
             </script>
 
