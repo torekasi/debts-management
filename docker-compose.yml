@@ -1,5 +1,34 @@
-version: '3.1'
+version: '3.8'
+
 services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: debt_apps
+    volumes:
+      - type: bind
+        source: ./database/init-permissions.sql
+        target: /docker-entrypoint-initdb.d/01-init-permissions.sql
+        read_only: true
+      - type: bind
+        source: ./database/3099-db.sql
+        target: /docker-entrypoint-initdb.d/02-3099-db.sql
+        read_only: true
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 5432
+      POSTGRES_DB: debt_apps
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
   app:
     build:
       context: .
@@ -17,48 +46,7 @@ services:
     environment:
       DB_HOST: db
       DB_DATABASE: rc126893_mydebts
-      DB_USERNAME: rc126893_mydebts
-      DB_PASSWORD: Malaysia@2413
-
-  db:
-    image: mysql:8.0
-    container_name: debt-db
-    restart: unless-stopped
-    ports:
-      - "3306:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: Malaysia@2413
-      MYSQL_DATABASE: rc126893_mydebts
-      MYSQL_USER: rc126893_mydebts
-      MYSQL_PASSWORD: Malaysia@2413
-      MYSQL_ROOT_HOST: '%'  # Allow root access from any host
-    volumes:
-      - dbdata:/var/lib/mysql
-      - ./database/init-permissions.sql:/docker-entrypoint-initdb.d/01-init-permissions.sql
-      - ./database/rc126893_mydebts.sql:/docker-entrypoint-initdb.d/02-init-database.sql
-    networks:
-      - debt-network
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: debt-phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: db
-      MYSQL_ROOT_PASSWORD: Malaysia@2413
-      PMA_USER: rc126893_mydebts
-      PMA_PASSWORD: Malaysia@2413
-    ports:
-      - "8080:80"
-    depends_on:
-      - db
-    networks:
-      - debt-network
 
 networks:
   debt-network:
     driver: bridge
-
-volumes:
-  dbdata:
