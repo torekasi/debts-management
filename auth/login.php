@@ -233,11 +233,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.3.1/p>
+                        <p class="text-xs text-gray-500">Version 1.3.2</p>
+                        <button id="install-button" style="display:none;">Install App</button>
+                        <script>
+                            if ('serviceWorker' in navigator) {
+                                window.addEventListener('load', function() {
+                                    navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+                                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                                    }, function(err) {
+                                        console.log('ServiceWorker registration failed: ', err);
+                                    });
+                                });
+                            }
+
+                            let deferredPrompt;
+                            const installButton = document.getElementById('install-button');
+
+                            window.addEventListener('beforeinstallprompt', (e) => {
+                                e.preventDefault();
+                                deferredPrompt = e;
+                                installButton.style.display = 'block';
+                            });
+
+                            installButton.addEventListener('click', (e) => {
+                                installButton.style.display = 'none';
+                                deferredPrompt.prompt();
+                                deferredPrompt.userChoice.then((choiceResult) => {
+                                    if (choiceResult.outcome === 'accepted') {
+                                        console.log('User accepted the A2HS prompt');
+                                    } else {
+                                        console.log('User dismissed the A2HS prompt');
+                                    }
+                                    deferredPrompt = null;
+                                });
+                            });
+                        </script>
                     </div>
                 </div>
             </form>
-            <button id="install-button">Install App</button>
         </div>
     </div>
 
@@ -289,42 +322,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.body.appendChild(script);
         });
     </script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                }, function(err) {
-                    console.log('ServiceWorker registration failed: ', err);
-                });
-            });
-        }
-
-        let deferredPrompt;
-        const installButton = document.getElementById('install-button');
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installButton.style.display = 'block';
-        });
-
-        installButton.addEventListener('click', (e) => {
-            installButton.style.display = 'none';
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the A2HS prompt');
-                } else {
-                    console.log('User dismissed the A2HS prompt');
-                }
-                deferredPrompt = null;
-            });
-        });
-    </script>
     <style>
         #install-button {
-            display: none;
+            display: block;
             margin-top: 10px;
             padding: 10px;
             background-color: #3b82f6;
