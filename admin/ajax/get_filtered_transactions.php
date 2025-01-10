@@ -21,8 +21,8 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    $start_date = $_GET['start_date'] ?? date('Y-m-d');
-    $end_date = $_GET['end_date'] ?? date('Y-m-d');
+    $start_date = $_GET['start_date'] ?? date('Y-m-d H:i:s', strtotime('today midnight'));
+    $end_date = $_GET['end_date'] ?? date('Y-m-d H:i:s', strtotime('tomorrow midnight') - 1);
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $items_per_page = 10;
     $offset = ($page - 1) * $items_per_page;

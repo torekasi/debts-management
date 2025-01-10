@@ -19,7 +19,9 @@ require_once '../includes/session.php';
                 <div class="flex">
                     <!-- Logo -->
                     <div class="flex-shrink-0 flex items-center">
-                        <span class="text-xl font-bold text-gray-800"><?php echo APP_NAME; ?></span>
+                        <a href="/" class="text-xl font-bold text-gray-800">
+                            <?php echo APP_NAME; ?>
+                        </a>
                     </div>
                     <!-- Navigation Links -->
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
