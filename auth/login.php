@@ -234,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.2.16</p>
+                        <p class="text-xs text-gray-500">Version 1.3.1/p>
                     </div>
                 </div>
             </form>
