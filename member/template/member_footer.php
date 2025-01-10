@@ -1,3 +1,5 @@
+<?php require_once __DIR__ . '/../../../includes/config.php'; ?>
+<div class="fixed bottom-16 right-4 text-xs text-gray-400 opacity-50">v<?php echo APP_VERSION; ?></div>
 <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-lg">
     <div class="container mx-auto px-4 py-2 flex justify-around items-center max-w-full md:max-w-[650px]">
         <a href="member_transactions.php" class="flex flex-col items-center text-sm font-medium <?php echo basename($_SERVER['PHP_SELF']) == 'member_transactions.php' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'; ?>">

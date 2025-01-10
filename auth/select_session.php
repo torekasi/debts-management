@@ -15,6 +15,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['selected_session'])) 
         $_SESSION['role'] = $selected_session['role'];
         $_SESSION['logged_in'] = true;
         
+        // Log the session switch
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]);
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO activity_logs (user_id, action, description, ip_address) 
+                VALUES (?, 'switch_session', ?, ?)
+            ");
+            $stmt->execute([
+                $selected_session['user_id'],
+                "User switched to another session",
+                $_SERVER['REMOTE_ADDR']
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database error during session switch: " . $e->getMessage());
+        }
+        
         // Redirect based on role
         if ($selected_session['role'] === 'admin') {
             header('Location: /admin/dashboard.php');
