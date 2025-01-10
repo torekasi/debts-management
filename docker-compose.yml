@@ -30,13 +30,10 @@ services:
       POSTGRES_PASSWORD: postgres
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: debt-app
-    restart: unless-stopped
+    container_name: debt_apps_php
+    build: .
     ports:
-      - "8081:80"
+      - "8082:80"
     volumes:
       - .:/var/www/html
     depends_on:
@@ -49,4 +46,4 @@ services:
 
 networks:
   debt-network:
-    driver: bridge
+  debt_network: {}
