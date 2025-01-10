@@ -61,7 +61,7 @@ try {
     $stats['total_payments'] = $stmt->fetchColumn();
 
     // Calculate outstanding balance
-    $stats['outstanding_balance'] = $stats['total_transactions'] - $stats['total_payments']
+    $stats['outstanding_balance'] = $stats['total_transactions'] - $stats['total_payments']; // Added semicolon here
 
     // Get monthly transactions and payments for the last 12 months
     $stmt = $pdo->query("
