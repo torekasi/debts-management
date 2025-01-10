@@ -1,6 +1,6 @@
 <?php
 // Application configuration
-define('APP_NAME', 'Mini Mart 3099');
+define('APP_NAME', 'Mini Mart 3099 - Staging');
 define('APP_VERSION', '1.0.0');
 
 // Start session at the very beginning if not already started
@@ -20,10 +20,10 @@ ini_set('display_errors', 0);
 ini_set('error_log', __DIR__ . '/../logs/error.log');
 
 // Database configuration
-define('DB_HOST', getenv('DB_HOST') ?: 'db');
-define('DB_USER', getenv('DB_USERNAME') ?: 'root');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USERNAME') ?: 'rc126893_stg-3099');
 define('DB_PASS', getenv('DB_PASSWORD') ?: 'Malaysia@2413');
-define('DB_NAME', getenv('DB_DATABASE') ?: 'rc126893_mydebts');
+define('DB_NAME', getenv('DB_DATABASE') ?: 'rc126893_stg-3099');
 define('DB_PORT', getenv('DB_PORT') ?: '3306');
 
 // Create PDO connection
