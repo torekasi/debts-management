@@ -40,7 +40,8 @@ $stats = [
     'total_users' => 0,
     'total_transactions' => 0,
     'total_payments' => 0,
-    'outstanding_balance' => 0
+    'outstanding_balance' => 0,
+    'today_transactions' => 0
 ];
 
 try {
@@ -58,6 +59,13 @@ try {
 
     // Calculate outstanding balance
     $stats['outstanding_balance'] = $stats['total_transactions'] - $stats['total_payments'];
+
+
+    // Get today's transactions
+    $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE DATE(date_transaction) = CURDATE()");
+    $stats['today_transactions'] = $stmt->fetchColumn();
+
+
 
     // Get monthly transactions and payments for the last 12 months
     $stmt = $pdo->query("
@@ -124,22 +132,62 @@ try {
         $payment_amounts[] = $pay_amount;
     }
 
-    // Get total number of transactions for pagination
-    $stmt = $pdo->query("SELECT COUNT(*) FROM transactions");
+    // Get recent transactions with pagination
+    $date_filter = isset($_GET['date_filter']) ? $_GET['date_filter'] : 'today';
+    $custom_start = isset($_GET['custom_start']) ? $_GET['custom_start'] : '';
+    $custom_end = isset($_GET['custom_end']) ? $_GET['custom_end'] : '';
+    
+    $date_condition = '';
+    switch ($date_filter) {
+        case 'today':
+            $date_condition = "AND DATE(t.date_transaction) = CURDATE()";
+            break;
+        case 'this_week':
+            $date_condition = "AND YEARWEEK(t.date_transaction) = YEARWEEK(CURDATE())";
+            break;
+        case 'this_month':
+            $date_condition = "AND YEAR(t.date_transaction) = YEAR(CURDATE()) AND MONTH(t.date_transaction) = MONTH(CURDATE())";
+            break;
+        case 'last_month':
+            $date_condition = "AND t.date_transaction >= DATE_SUB(DATE_FORMAT(CURDATE() ,'%Y-%m-01'), INTERVAL 1 MONTH) 
+                              AND t.date_transaction < DATE_FORMAT(CURDATE() ,'%Y-%m-01')";
+            break;
+        case 'custom':
+            if ($custom_start && $custom_end) {
+                $date_condition = "AND DATE(t.date_transaction) BETWEEN :custom_start AND :custom_end";
+            }
+            break;
+    }
+
+    // Get total number of transactions for pagination with date filter
+    $count_sql = "SELECT COUNT(*) FROM transactions t 
+                  JOIN users u ON t.user_id = u.id 
+                  WHERE t.type != 'debt' $date_condition";
+    if ($date_filter === 'custom' && $custom_start && $custom_end) {
+        $stmt = $pdo->prepare($count_sql);
+        $stmt->bindParam(':custom_start', $custom_start);
+        $stmt->bindParam(':custom_end', $custom_end);
+    } else {
+        $stmt = $pdo->query($count_sql);
+    }
     $total_transactions = $stmt->fetchColumn();
     $total_pages_transactions = ceil($total_transactions / $items_per_page);
 
-    // Get recent transactions with pagination
-    $stmt = $pdo->prepare("
-        SELECT t.id, t.amount, t.description, t.image_path, t.date_transaction, u.full_name, u.id as user_id
-        FROM transactions t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.type != 'debt'
-        ORDER BY t.date_transaction DESC
-        LIMIT :offset, :limit
-    ");
+    // Get recent transactions with pagination and date filter
+    $sql = "SELECT t.id, t.amount, t.description, t.image_path, t.date_transaction, u.full_name, u.id as user_id
+            FROM transactions t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.type != 'debt' $date_condition
+            ORDER BY t.date_transaction DESC
+            LIMIT :offset, :limit";
+
+    $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':offset', $offset_transactions, PDO::PARAM_INT);
     $stmt->bindValue(':limit', $items_per_page, PDO::PARAM_INT);
+    if ($date_filter === 'custom' && $custom_start && $custom_end) {
+        $stmt->bindParam(':custom_start', $custom_start);
+        $stmt->bindParam(':custom_end', $custom_end);
+    }
     $stmt->execute();
     $recent_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -196,6 +244,64 @@ try {
         .collapsed {
             display: none;
         }
+        .description-cell {
+            max-width: 300px;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        .filter-container {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .filter-select {
+            min-width: 200px;
+            height: 48px;
+            padding-left: 12px;
+            border-width: 2px;
+            border-color: #D1D5DB;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+        }
+        .filter-select:focus {
+            outline: none;
+            border-color: #6366F1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        .date-inputs {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .date-inputs label {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .date-input {
+            height: 48px;
+            padding-left: 12px;
+            border-width: 2px;
+            border-color: #D1D5DB;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            width: 100%;
+        }
+        .date-input:focus {
+            outline: none;
+            border-color: #6366F1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -206,34 +312,38 @@ try {
         <!-- Main Content -->
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- Statistics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <!-- Total Payments recieved -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <!-- Total Users -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                                <i class="fas fa-hand-holding-usd text-white text-2xl"></i>
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Payments Recieved</dt>
-                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['total_payments'], 2); ?></dd>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                                    <dd class="text-lg font-semibold text-gray-900"><?php echo number_format($stats['total_users']); ?></dd>
                                 </dl>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Total Amount -->
+                <!-- Total Transactions -->
                 <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
-                                <i class="fas fa-hand-holding-usd text-white text-2xl"></i>
+                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Transaction Amount</dt>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
                                     <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['total_transactions'], 2); ?></dd>
                                 </dl>
                             </div>
@@ -242,28 +352,67 @@ try {
                 </div>
 
                 <!-- Outstanding Balance -->
-                <div class="bg-green-100 overflow-hidden shadow rounded-lg">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
                     <div class="p-5">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-                                <i class="fas fa-balance-scale text-white text-2xl"></i>
+                            <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
                             </div>
                             <div class="ml-5 w-0 flex-1">
                                 <dl>
-                                    <dt class="text-sm font-medium text-green-700 truncate">Outstanding Balance</dt>
-                                    <dd class="text-lg font-semibold text-green-900">RM <?php echo number_format($stats['outstanding_balance'], 2); ?></dd>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Outstanding Balance</dt>
+                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['outstanding_balance'], 2); ?></dd>
                                 </dl>
                             </div>
                         </div>
                     </div>
                 </div>
+
+
+                <!-- Today's Transactions -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Today's Transactions</dt>
+                                    <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($stats['today_transactions'], 2); ?></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
             </div>
 
-            <!-- Monthly Transactions vs Payments Chart -->
-            <div class="bg-white shadow rounded-lg mb-8 p-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Monthly Transactions vs Payments</h3>
-                <div class="w-full" style="height: 350px;">
+            <!-- Monthly Chart -->
+            <div class="bg-white shadow rounded-lg p-6 mb-8">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Monthly Overview</h3>
+                <div class="relative" style="height: 300px;">
                     <canvas id="monthlyChart"></canvas>
+                </div>
+                <div class="flex justify-end gap-4 mt-4">
+                    <a href="add_transaction.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Transaction
+                    </a>
+                    <a href="add_payment.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Payment
+                    </a>
                 </div>
             </div>
 
@@ -280,6 +429,67 @@ try {
                 <div id="transactions-content" class="flex flex-col">
                     <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
                         <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                            <!-- Date Filter -->
+                            <div class="filter-container">
+                                <form class="space-y-4" method="GET">
+                                    <div>
+                                        <label class="filter-label">Filter Transactions By:</label>
+                                        <div class="flex items-end space-x-4">
+                                            <div class="flex-1">
+                                                <div class="relative">
+                                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                        <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <select name="date_filter" class="filter-select focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-14 h-12 sm:text-sm border-2 border-gray-300 rounded-lg">
+                                                        <option value="all" <?php echo $date_filter === 'all' ? 'selected' : ''; ?>>All Time</option>
+                                                        <option value="today" <?php echo $date_filter === 'today' ? 'selected' : ''; ?>>Today</option>
+                                                        <option value="this_week" <?php echo $date_filter === 'this_week' ? 'selected' : ''; ?>>This Week</option>
+                                                        <option value="this_month" <?php echo $date_filter === 'this_month' ? 'selected' : ''; ?>>This Month</option>
+                                                        <option value="last_month" <?php echo $date_filter === 'last_month' ? 'selected' : ''; ?>>Last Month</option>
+                                                        <option value="custom" <?php echo $date_filter === 'custom' ? 'selected' : ''; ?>>Custom Range</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <div id="custom-date-range" class="flex space-x-4" style="display: <?php echo $date_filter === 'custom' ? 'flex' : 'none'; ?>">
+                                                <div class="relative">
+                                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                        <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <input type="date" name="custom_start" value="<?php echo $custom_start; ?>" 
+                                                           class="date-input focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-14 h-12 sm:text-sm border-2 border-gray-300 rounded-lg">
+                                                </div>
+                                                <div class="relative">
+                                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                        <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                    <input type="date" name="custom_end" value="<?php echo $custom_end; ?>" 
+                                                           class="date-input focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-14 h-12 sm:text-sm border-2 border-gray-300 rounded-lg">
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <input type="hidden" name="trans_page" value="<?php echo $current_page_transactions; ?>">
+                                                <input type="hidden" name="act_page" value="<?php echo $current_page_activities; ?>">
+                                                <input type="hidden" name="pay_page" value="<?php echo $current_page_payments; ?>">
+                                                <button type="submit" 
+                                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 h-12" onclick="event.preventDefault(); this.form.submit()">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                                                    </svg>
+                                                    Apply Filter
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
                             <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
@@ -302,7 +512,7 @@ try {
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 RM <?php echo number_format($transaction['amount'] ?? 0, 2); ?>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="px-6 py-4 text-sm text-gray-500 description-cell">
                                                 <?php echo htmlspecialchars($transaction['description'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -320,17 +530,63 @@ try {
                             </div>
                             <!-- Transactions Pagination -->
                             <?php if ($total_pages_transactions > 1): ?>
-                            <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                                <div class="flex-1 flex justify-between items-center">
+                            <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                                <div class="flex-1 flex justify-between sm:hidden">
                                     <?php if ($current_page_transactions > 1): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&date_filter=<?php echo $date_filter; ?><?php echo $date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''; ?>" 
+                                           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                            Previous
+                                        </a>
                                     <?php endif; ?>
-                                    <span class="text-sm text-gray-700">
-                                        Page <?php echo $current_page_transactions; ?> of <?php echo $total_pages_transactions; ?>
-                                    </span>
                                     <?php if ($current_page_transactions < $total_pages_transactions): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&date_filter=<?php echo $date_filter; ?><?php echo $date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''; ?>" 
+                                           class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                            Next
+                                        </a>
                                     <?php endif; ?>
+                                </div>
+                                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-700">
+                                            Showing
+                                            <span class="font-medium"><?php echo $offset_transactions + 1; ?></span>
+                                            to
+                                            <span class="font-medium"><?php echo min($offset_transactions + $items_per_page, $total_transactions); ?></span>
+                                            of
+                                            <span class="font-medium"><?php echo $total_transactions; ?></span>
+                                            results
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                            <?php if ($current_page_transactions > 1): ?>
+                                                <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&date_filter=<?php echo $date_filter; ?><?php echo $date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''; ?>" 
+                                                   class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                                    <span class="sr-only">Previous</span>
+                                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </a>
+                                            <?php endif; ?>
+
+                                            <?php for($i = 1; $i <= $total_pages_transactions; $i++): ?>
+                                                <a href="?trans_page=<?php echo $i; ?>&date_filter=<?php echo $date_filter; ?><?php echo $date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''; ?>" 
+                                                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium <?php echo $i === $current_page_transactions ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-50'; ?>">
+                                                    <?php echo $i; ?>
+                                                </a>
+                                            <?php endfor; ?>
+
+                                            <?php if ($current_page_transactions < $total_pages_transactions): ?>
+                                                <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&date_filter=<?php echo $date_filter; ?><?php echo $date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''; ?>" 
+                                                   class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                                    <span class="sr-only">Next</span>
+                                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </a>
+                                            <?php endif; ?>
+                                        </nav>
+                                    </div>
                                 </div>
                             </div>
                             <?php endif; ?>
@@ -635,6 +891,17 @@ try {
 
         // Initialize sections when page loads
         document.addEventListener('DOMContentLoaded', initializeSections);
+    </script>
+    <script>
+        // Date filter custom range toggle
+        document.querySelector('select[name="date_filter"]').addEventListener('change', function() {
+            const customDateRange = document.getElementById('custom-date-range');
+            if (this.value === 'custom') {
+                customDateRange.style.display = 'flex';
+            } else {
+                customDateRange.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
