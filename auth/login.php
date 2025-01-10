@@ -126,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title><?php echo APP_NAME; ?> - Login</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="/manifest.json">
 </head>
 <body class="h-full">
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -171,7 +172,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
             <?php endif; ?>
-
             <!-- Active Sessions -->
             <?php if (isset($_SESSION['active_sessions']) && count($_SESSION['active_sessions']) > 0): ?>
             <div class="bg-white shadow-lg rounded-lg overflow-hidden border-2 border-indigo-200">
@@ -203,7 +203,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
             <?php endif; ?>
-
             <!-- Login Form -->
             <form class="mt-8 space-y-6" action="" method="POST">
                 <input type="hidden" name="remember" value="true">
@@ -238,6 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
             </form>
+            <button id="install-button">Install App</button>
         </div>
     </div>
 
@@ -289,5 +289,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             document.body.appendChild(script);
         });
     </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        let deferredPrompt;
+        const installButton = document.getElementById('install-button');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installButton.style.display = 'block';
+        });
+
+        installButton.addEventListener('click', (e) => {
+            installButton.style.display = 'none';
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                } else {
+                    console.log('User dismissed the A2HS prompt');
+                }
+                deferredPrompt = null;
+            });
+        });
+    </script>
+    <style>
+        #install-button {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #install-button:hover {
+            background-color: #2563eb;
+        }
+    </style>
 </body>
 </html>
