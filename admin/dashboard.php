@@ -15,8 +15,8 @@ $offset_activities = ($current_page_activities - 1) * $items_per_page;
 $offset_payments = ($current_page_payments - 1) * $items_per_page;
 
 // Date filter settings
-$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
-$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d H:i:s', strtotime('today midnight'));
+$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d H:i:s', strtotime('tomorrow midnight') - 1);
 
 // Database connection
 try {
@@ -271,7 +271,15 @@ try {
                     </div>
                 </div>
             </div>
-
+       <!-- Add Transaction and Payment Buttons -->
+       <div class="flex justify-end gap-4 mb-8">
+            <button class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors" onclick="window.location.href='add_transaction.php'">
+                Add Transaction
+            </button>
+            <button class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors" onclick="window.location.href='add_payment.php'">
+                Add Payment
+            </button>
+        </div>
             <!-- Monthly Transactions vs Payments Chart -->
             <div class="bg-white shadow rounded-lg mb-8 p-6">
                 <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Monthly Transactions vs Payments</h3>
@@ -299,10 +307,10 @@ try {
                                         <!-- Date Range Input -->
                                         <div class="w-full sm:w-64">
                                             <label for="date_range" class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                                            <input type="text" id="date_range" name="date_range" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-12 h-12 sm:text-sm border-2 border-gray-300 rounded-lg">
+                                            <input type="text" id="date_range" name="date_range" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-12 h-12 sm:text-sm border-2 border-gray-300 rounded-lg" style="width: 400px;">
                                         </div>
                                         
-                                        <!-- Quick Filter Buttons -->
+                                        <!-- Quick Filter Buttons 
                                         <div class="flex flex-wrap gap-2">
                                             <button onclick="setDateRange('today')" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
                                                 Today
@@ -318,10 +326,10 @@ try {
                                             </button>
                                         </div>
                                         
-                                        <!-- Apply Filter Button -->
+                                         Apply Filter Button
                                         <button onclick="applyDateFilter()" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
                                             Apply Filter
-                                        </button>
+                                        </button> -->
                                     </div>
                                 </div>
                                 <table class="min-w-full divide-y divide-gray-200">
@@ -343,7 +351,7 @@ try {
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 RM <?php echo number_format($transaction['amount'] ?? 0, 2); ?>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">
                                                 <?php echo htmlspecialchars($transaction['description'] ?? ''); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -405,7 +413,7 @@ try {
                         startDate: '<?php echo $start_date; ?>',
                         endDate: '<?php echo $end_date; ?>',
                         locale: {
-                            format: 'YYYY-MM-DD'
+                            format: 'YYYY-MM-DD HH:mm:ss'
                         },
                         ranges: {
                             'Today': [moment(), moment()],
@@ -414,7 +422,7 @@ try {
                             'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
                         }
                     }, function(start, end) {
-                        window.location.href = '?start_date=' + start.format('YYYY-MM-DD') + '&end_date=' + end.format('YYYY-MM-DD');
+                        window.location.href = '?start_date=' + start.format('YYYY-MM-DD HH:mm:ss') + '&end_date=' + end.format('YYYY-MM-DD HH:mm:ss');
                     });
                 });
 
@@ -442,7 +450,7 @@ try {
                     }
                     
                     if (start && end) {
-                        window.location.href = '?start_date=' + start.format('YYYY-MM-DD') + '&end_date=' + end.format('YYYY-MM-DD');
+                        window.location.href = '?start_date=' + start.format('YYYY-MM-DD HH:mm:ss') + '&end_date=' + end.format('YYYY-MM-DD HH:mm:ss');
                     }
                 }
 
