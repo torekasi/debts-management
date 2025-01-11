@@ -246,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                     
                     <div class="text-center mt-2">
-                        <p class="text-xs text-gray-500">Version 1.3.2</p>
+                        <p class="text-xs text-gray-500">Version 1.3.3</p>
                         <button id="install-button" style="display:none;">Install App</button>
                         <script>
                             if ('serviceWorker' in navigator) {
