@@ -123,10 +123,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo APP_NAME; ?> - Login</title>
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Mini Mart 3099">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <title>Login - Mini Mart 3099</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="/manifest.json">
+    <script src="/app.js" defer></script>
+    <script>
+        // Check if running in standalone mode (PWA)
+        if (window.matchMedia('(display-mode: browser)').matches && !window.location.href.includes('installed=true')) {
+            // Show installation prompt or redirect
+            window.location.href = '/?installPWA=true';
+        }
+    </script>
 </head>
 <body class="h-full">
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -153,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- Title -->
             <div>
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Sign in to <?php echo APP_NAME; ?>
+                    Sign in to Mini Mart 3099
                 </h2>
             </div>
 

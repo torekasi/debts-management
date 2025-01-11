@@ -1,0 +1,8 @@
+push-to-github:
+  description: Push code to github
+  steps:
+    - Push current code to the backup github repository
+    - Get the current version number from the login.html file
+    - Increment the version number
+    - Replace the old version number with the new one in the login.html file
+    - Push the updated code to the origin repository
