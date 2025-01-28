@@ -70,15 +70,12 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
 <body class="bg-gray-100">
     <?php include 'template/member_header.php'; ?>
     <main class="content-container">
-
-
-
         <!-- Financial Overview Cards -->
-        <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bg-white rounded-lg shadow-md p-4 text-center">
                 <div class="flex items-center justify-center mb-2">
                     <i class="fas fa-shopping-cart text-blue-500 mr-2 text-base"></i>
-                    <h3 class="text-xs font-medium text-blue-500">Total Shopping</h3>
+                    <h3 class="text-xs font-medium text-blue-500">Your Shopping</h3>
                 </div>
                 <p class="text-xl font-bold text-gray-900">RM<?php echo number_format($totalDebt, 2); ?></p>
             </div>
@@ -89,28 +86,17 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                 </div>
                 <p class="text-xl font-bold text-gray-900">RM<?php echo number_format($totalPayments, 2); ?></p>
             </div>
-        </div>
-
-        <!-- Outstanding Balance Card -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="bg-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-100 rounded-full p-2 mr-3">
-                        <i class="fas fa-balance-scale text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500 text-base"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-semibold text-gray-900">Outstanding Balance</h3>
-                        <p class="text-xs text-gray-500">Current balance to be paid</p>
-                    </div>
+            <div class="bg-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-50 rounded-lg shadow-md p-4 text-center">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-balance-scale text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500 mr-2 text-base"></i>
+                    <h3 class="text-xs font-medium text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500">Outstanding Balance</h3>
                 </div>
-                <div class="text-right">
-                    <p class="text-xl font-bold text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500">
-                        RM<?php echo number_format($totalDebt - $totalPayments, 2); ?>
-                    </p>
-                    <p class="text-xs text-gray-500">
-                        <?php echo ($totalDebt - $totalPayments) > 0 ? 'Due Balance' : 'Fully Paid'; ?>
-                    </p>
-                </div>
+                <p class="text-xl font-bold text-<?php echo ($totalDebt - $totalPayments) > 0 ? 'red' : 'green'; ?>-500">
+                    RM<?php echo number_format($totalDebt - $totalPayments, 2); ?>
+                </p>
+                <p class="text-[10px] text-gray-500">
+                    <?php echo ($totalDebt - $totalPayments) > 0 ? 'Due Balance' : 'Fully Paid'; ?>
+                </p>
             </div>
         </div>
 
@@ -368,10 +354,10 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                                 title: 'Success!',
                                 text: result.message,
                                 icon: 'success',
-                                timer: 1500,
-                                showConfirmButton: false
+                                showConfirmButton: true,
+                                confirmButtonText: 'OK'
                             }).then(() => {
-                                window.location.reload();
+                                window.location.href = 'member_transactions.php';
                             });
                         } else {
                             throw new Error(result.message);
@@ -401,7 +387,7 @@ $totalPayments = $stmt->fetch()['total_payments'] ?? 0;
                         </svg>
                     </div>
                     <h3 class="text-lg font-medium text-gray-900 mb-2">Transaction Successful!</h3>
-                    <p class="text-sm text-gray-500">Your transaction has been successfully recorded.</p>
+                    <p class="text-sm text-gray-500">Show this transaction to Cashier for confirmation</p>
                     <div class="mt-4">
                         <button type="button" onclick="hideSuccessToast()" class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm">
                             Close

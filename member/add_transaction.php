@@ -73,7 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $conn->commit();
 
         $response['status'] = 'success';
-        $response['message'] = 'Transaction added successfully!';
+        $response['message'] = "SHOW THIS TO CASHIER!";
         $response['transaction_id'] = $transaction_id;
         echo json_encode($response);
         exit;

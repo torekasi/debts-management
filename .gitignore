@@ -18,8 +18,8 @@
 
 # Environment files
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
 
 # Uploaded files
 /uploads/
@@ -38,3 +38,7 @@
 ehthumbs.db
 Thumbs.db
 includes/config.php
+
+# Composer
+composer.phar
+composer.lock

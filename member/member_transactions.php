@@ -108,61 +108,55 @@ foreach ($transactions as $transaction) {
 <body class="bg-gray-100" >
     <?php include 'template/member_header.php'; ?>
 
+    <!-- Success Notification -->
+    <?php if (isset($_GET['success'])): ?>
+    <div class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4 notification-container">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg flex justify-between items-center">
+            <div class="flex items-center">
+                <svg class="h-5 w-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="text-green-800">Operation completed successfully</span>
+            </div>
+            <button onclick="closeNotification(this)" 
+                    class="ml-4 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                    aria-label="Close notification">
+                OK
+            </button>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <main class="content-container">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <!-- Total Transactions Card -->
-            <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Total Transactions</dt>
-                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($totalTransactionAmount, 2); ?></dd>
-                        </dl>
-                    </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-shopping-cart text-blue-500 mr-2 text-base"></i>
+                    <h3 class="text-xs font-medium text-blue-500">Your Shopping</h3>
                 </div>
+                <p class="text-xl font-bold text-gray-900">RM <?php echo number_format($totalTransactionAmount, 2); ?></p>
             </div>
 
-            <!-- Total Payments Card -->
-            <div class="bg-white rounded-lg shadow-sm p-4 md:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Total Payments</dt>
-                            <dd class="text-lg font-semibold text-gray-900">RM <?php echo number_format($totalPaymentAmount, 2); ?></dd>
-                        </dl>
-                    </div>
+            <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-credit-card text-green-500 mr-2 text-base"></i>
+                    <h3 class="text-xs font-medium text-green-500">Payments Made</h3>
                 </div>
+                <p class="text-xl font-bold text-gray-900">RM <?php echo number_format($totalPaymentAmount, 2); ?></p>
             </div>
 
-            <!-- Balance Card -->
-            <div class="bg-green-50 rounded-lg shadow-sm p-4 md:p-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
-                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                        </svg>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Balance</dt>
-                            <dd class="text-lg font-semibold text-<?php echo $balance > 0 ? 'red' : 'green'; ?>-600">
-                                RM <?php echo number_format(abs($balance), 2); ?>
-                                <span class="text-sm font-normal"><?php echo $balance > 0 ? '(Outstanding)' : '(Paid)'; ?></span>
-                            </dd>
-                        </dl>
-                    </div>
+            <div class="bg-<?php echo $balance > 0 ? 'red' : 'green'; ?>-50 rounded-lg shadow-md p-4 text-center">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-balance-scale text-<?php echo $balance > 0 ? 'red' : 'green'; ?>-500 mr-2 text-base"></i>
+                    <h3 class="text-xs font-medium text-<?php echo $balance > 0 ? 'red' : 'green'; ?>-500">Balance</h3>
                 </div>
+                <p class="text-xl font-bold text-<?php echo $balance > 0 ? 'red' : 'green'; ?>-500">
+                    RM <?php echo number_format(abs($balance), 2); ?>
+                </p>
+                <p class="text-[10px] text-gray-500">
+                    <?php echo $balance > 0 ? 'Due Balance' : 'Fully Paid'; ?>
+                </p>
             </div>
         </div>
 
@@ -345,8 +339,16 @@ foreach ($transactions as $transaction) {
             </div>
         </div>
 
-        <script>
-            function showTransactionDetails(transaction) {
+    <script>
+        // Close notification handler
+        function closeNotification(button) {
+            const notification = button.closest('.fixed');
+            if (notification) {
+                notification.remove();
+            }
+        }
+
+        function showTransactionDetails(transaction) {
                 try {
                     // Update modal content
                     document.getElementById('modalTransactionId').textContent = transaction.transaction_id || '';

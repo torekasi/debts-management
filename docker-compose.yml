@@ -2,32 +2,37 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:latest
+    image: mysql:8.0
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: debt_apps
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: debt_apps
+      MYSQL_USER: mysql
+      MYSQL_PASSWORD: mysql
     volumes:
       - type: bind
-        source: ./database/init-permissions.sql
-        target: /docker-entrypoint-initdb.d/01-init-permissions.sql
+        source: ./database/schema.sql
+        target: /docker-entrypoint-initdb.d/01-schema.sql
         read_only: true
-      - type: bind
-        source: ./database/3099-db.sql
-        target: /docker-entrypoint-initdb.d/02-3099-db.sql
-        read_only: true
+      - mysql_data:/var/lib/mysql
     ports:
-      - "5432:5432"
+      - "3306:3306"
     restart: unless-stopped
+    networks:
+      - debt-network
+    command: --default-authentication-plugin=mysql_native_password
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     environment:
       PMA_HOST: db
-      PMA_PORT: 5432
-      POSTGRES_DB: debt_apps
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8083:80"
+    depends_on:
+      - db
+    networks:
+      - debt-network
 
   app:
     container_name: debt_apps_php
@@ -42,8 +47,14 @@ services:
       - debt-network
     environment:
       DB_HOST: db
-      DB_DATABASE: rc126893_mydebts
+      DB_PORT: 3306
+      DB_DATABASE: debt_apps
+      DB_USERNAME: mysql
+      DB_PASSWORD: mysql
 
 networks:
   debt-network:
-  debt_network: {}
+    driver: bridge
+
+volumes:
+  mysql_data:
