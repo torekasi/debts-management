@@ -132,7 +132,7 @@ foreach ($transactions as $transaction) {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bg-white rounded-lg shadow-md p-4 text-center">
                 <div class="flex items-center justify-center mb-2">
-                    <i class="fas fa-shopping-cart text-blue-500 mr-2 text-base"></i>
+                    <i class="fas fa-shopping-cart text-blue-500 mr-2 text-base"></i>   
                     <h3 class="text-xs font-medium text-blue-500">Your Shopping</h3>
                 </div>
                 <p class="text-xl font-bold text-gray-900">RM <?php echo number_format($totalTransactionAmount, 2); ?></p>

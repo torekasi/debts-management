@@ -1,0 +1,21 @@
+1.0.0
+
+# Changelog
+
+## [1.0.0] - 2024-03-20
+### Added
+- Initial release
+- User authentication system
+- Transaction management
+- Payment tracking
+- Admin dashboard with filters and pagination
+- Member management system
+- Activity logging
+- Responsive UI with Tailwind CSS
+
+### Security
+- Password hashing
+- Session management
+- Input validation
+- XSS protection
+- CSRF protection 
