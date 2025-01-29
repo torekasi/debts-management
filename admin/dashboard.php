@@ -533,13 +533,35 @@ try {
                             <div class="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                                 <div class="flex-1 flex justify-between items-center">
                                     <?php if ($current_page_transactions > 1): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions - 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>&date_filter=<?php echo $date_filter; ?><?php echo ($date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''); ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
                                     <?php endif; ?>
-                                    <span class="text-sm text-gray-700">
-                                        Page <?php echo $current_page_transactions; ?> of <?php echo $total_pages_transactions; ?>
-                                    </span>
+                                    
+                                    <div class="flex items-center space-x-2">
+                                        <?php
+                                        // Show first 3 pages
+                                        for ($i = 1; $i <= min(3, $total_pages_transactions); $i++) {
+                                            $active = $i === $current_page_transactions ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-50';
+                                            echo '<a href="?trans_page=' . $i . '&act_page=' . $current_page_activities . '&pay_page=' . $current_page_payments . '&date_filter=' . $date_filter . ($date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : '') . '" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ' . $active . '">' . $i . '</a>';
+                                        }
+
+                                        // Show ellipsis if there are more than 6 pages
+                                        if ($total_pages_transactions > 6) {
+                                            echo '<span class="px-2 text-gray-500">...</span>';
+                                        }
+
+                                        // Show last 3 pages if total pages is more than 3
+                                        if ($total_pages_transactions > 3) {
+                                            $start = max($total_pages_transactions - 2, 4);
+                                            for ($i = $start; $i <= $total_pages_transactions; $i++) {
+                                                $active = $i === $current_page_transactions ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-50';
+                                                echo '<a href="?trans_page=' . $i . '&act_page=' . $current_page_activities . '&pay_page=' . $current_page_payments . '&date_filter=' . $date_filter . ($date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : '') . '" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ' . $active . '">' . $i . '</a>';
+                                            }
+                                        }
+                                        ?>
+                                    </div>
+
                                     <?php if ($current_page_transactions < $total_pages_transactions): ?>
-                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                                        <a href="?trans_page=<?php echo ($current_page_transactions + 1); ?>&act_page=<?php echo $current_page_activities; ?>&pay_page=<?php echo $current_page_payments; ?>&date_filter=<?php echo $date_filter; ?><?php echo ($date_filter === 'custom' ? '&custom_start=' . $custom_start . '&custom_end=' . $custom_end : ''); ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
                                     <?php endif; ?>
                                 </div>
                             </div>

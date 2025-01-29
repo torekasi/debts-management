@@ -1,0 +1,65 @@
+# Development Workflow Rules
+
+## Branch Management
+1. All development work must be done in the `dev` branch
+2. Never push directly to the `main` branch
+3. Create feature branches from `dev` for new features
+4. Branch naming convention: 
+   - Feature: `feature/feature-name`
+   - Bugfix: `bugfix/bug-description`
+   - Hotfix: `hotfix/issue-description`
+
+## Version Management
+1. Version format: MAJOR.MINOR.PATCH (e.g., 1.0.0)
+2. Increment version numbers based on:
+   - MAJOR: Breaking changes
+   - MINOR: New features (backwards compatible)
+   - PATCH: Bug fixes and minor changes
+3. Update version number in the following files before pushing:
+   - package.json (if exists)
+   - composer.json (if exists)
+   - VERSION.txt
+
+## Pre-Push Checklist
+1. Ensure all code is committed to `dev` branch first
+2. Update version number according to changes
+3. Run all tests (if available)
+4. Update documentation if needed
+5. Review code changes
+6. Create pull request from `dev` to `main` for major releases
+
+## Code Quality
+1. Follow PHP PSR-12 coding standards
+2. Ensure proper documentation of new functions
+3. Remove debug/console logs before pushing
+4. Optimize images and assets
+5. Check for security vulnerabilities
+
+## Deployment Process
+1. Dev Branch → Staging → Main Branch → Production
+2. Tag releases with version numbers
+3. Include release notes for each version
+4. Update version number in the following files before pushing:
+    - auth/login.php (line 237)
+    
+
+## Git Commands Reference
+```bash
+# Create and switch to dev branch
+git checkout -b dev
+
+# Check current branch
+git branch
+
+# Update version and commit
+git add VERSION.txt
+git commit -m "chore: bump version to X.Y.Z"
+
+# Push to dev branch
+git push origin dev
+
+# Create pull request to main (for major releases)
+# Use GitHub interface or CLI
+```
+
+Remember: Always pull latest changes before starting new work! 
