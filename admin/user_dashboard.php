@@ -198,14 +198,14 @@ include 'template/header.php';
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction Date</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <?php foreach ($month_transactions as $transaction): ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800">
-                                        <?php echo htmlspecialchars($transaction['transaction_id']); ?>
+                                        <?php echo htmlspecialchars($transaction['id']); ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <?php echo htmlspecialchars($transaction['type']); ?>
@@ -219,10 +219,17 @@ include 'template/header.php';
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <?php echo date('d M Y | h:i A', strtotime($transaction['date_transaction'])); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php if ($transaction['image_path']): ?>
-                                            <button onclick="showImageModal('<?php echo htmlspecialchars($transaction['image_path']); ?>')" class="text-blue-500 hover:text-blue-700">View Image</button>
-                                        <?php endif; ?>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button onclick="showEditModal('<?php echo $transaction['id']; ?>', '<?php echo $transaction['amount']; ?>')" class="text-indigo-600 hover:text-indigo-900">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                        </button>
+                                        <button onclick="showDeleteModal('<?php echo $transaction['id']; ?>')" class="text-red-600 hover:text-red-900">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                            </svg>
+                                        </button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -245,10 +252,10 @@ include 'template/header.php';
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-green-50">
                                         <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment ID</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                                         </tr>
                                     </thead>
@@ -256,16 +263,16 @@ include 'template/header.php';
                                         <?php foreach ($payments as $payment): ?>
                                         <tr class="hover:bg-gray-50">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo date('d M Y | h:i A', strtotime($payment['payment_date'])); ?>
+                                                <?php echo htmlspecialchars($payment['id']); ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?php echo date('d M Y', strtotime($payment['payment_date'])); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 RM <?php echo number_format($payment['amount'], 2); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php echo htmlspecialchars($payment['payment_method']); ?>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php echo htmlspecialchars($payment['id']); ?>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php echo htmlspecialchars($payment['notes']); ?>
@@ -297,6 +304,67 @@ include 'template/header.php';
                 <div class="p-4">
                     <img id="modalImage" src="" alt="Transaction Image" class="max-w-full h-auto mx-auto">
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Confirm Delete</h3>
+                <p class="text-sm text-gray-500 mb-4">Please enter your password to confirm deletion.</p>
+                <form id="deleteForm" method="POST" action="process_delete_transaction.php">
+                    <input type="hidden" id="deleteTransactionId" name="transaction_id">
+                    <div class="mb-4">
+                        <label for="deletePassword" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="deletePassword" name="password" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeDeleteModal()"
+                                class="inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                            Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div id="editModal" class="fixed inset-0 bg-gray-500 bg-opacity-75 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Transaction</h3>
+                <p class="text-sm text-gray-500 mb-4">Please enter your password to confirm changes.</p>
+                <form id="editForm" method="POST" action="process_edit_transaction.php">
+                    <input type="hidden" id="editTransactionId" name="transaction_id">
+                    <div class="mb-4">
+                        <label for="editAmount" class="block text-sm font-medium text-gray-700">Amount (RM)</label>
+                        <input type="number" step="0.01" id="editAmount" name="amount" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="editPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="editPassword" name="password" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeEditModal()"
+                                class="inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -356,6 +424,48 @@ include 'template/header.php';
             modal.removeEventListener('click', null);
             document.removeEventListener('keydown', null);
         }
+
+        function showDeleteModal(transactionId) {
+            document.getElementById('deleteTransactionId').value = transactionId;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            document.getElementById('deletePassword').value = '';
+        }
+
+        function showEditModal(transactionId, amount) {
+            document.getElementById('editTransactionId').value = transactionId;
+            document.getElementById('editAmount').value = amount;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editAmount').value = '';
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const deleteModal = document.getElementById('deleteModal');
+            const editModal = document.getElementById('editModal');
+            if (event.target === deleteModal) {
+                closeDeleteModal();
+            }
+            if (event.target === editModal) {
+                closeEditModal();
+            }
+        }
+
+        // Close modals on escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeDeleteModal();
+                closeEditModal();
+            }
+        });
     </script>
 </body>
 </html>
