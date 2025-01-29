@@ -216,7 +216,8 @@ try {
 
     // Get recent payments with pagination
     $stmt = $pdo->prepare("
-        SELECT p.id, p.transaction_id, p.user_id, p.amount, p.payment_date, p.created_at, u.full_name
+        SELECT p.id, p.transaction_id, p.user_id, p.amount, p.payment_date, p.created_at, 
+               u.full_name, u.id as member_id
         FROM payments p
         JOIN users u ON p.user_id = u.id
         ORDER BY p.created_at DESC
@@ -407,12 +408,7 @@ try {
                         </svg>
                         Add Transaction
                     </a>
-                    <a href="add_payment.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Payment
-                    </a>
+                    
                 </div>
             </div>
 
@@ -498,7 +494,6 @@ try {
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Transaction</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
@@ -506,7 +501,7 @@ try {
                                         <tr class="hover:bg-green-100">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 <a href="/admin/user_dashboard.php?user_id=<?php echo $transaction['user_id']; ?>" class="text-blue-600 hover:text-blue-800">
-                                                    <?php echo htmlspecialchars($transaction['full_name'] ?? ''); ?>
+                                                    <?php echo htmlspecialchars($transaction['full_name'] ?? '') . ' (' . htmlspecialchars($transaction['user_id'] ?? '') . ')'; ?>
                                                 </a>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -518,11 +513,7 @@ try {
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 <?php echo date('d M Y | h:i A', strtotime($transaction['date_transaction'] ?? '')); ?>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <?php if ($transaction['image_path']): ?>
-                                                    <button onclick="showImageModal('<?php echo htmlspecialchars($transaction['image_path']); ?>')" class="text-blue-500">View Image</button>
-                                                <?php endif; ?>
-                                            </td>
+                                           
                                         </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -627,7 +618,9 @@ try {
                                         <?php foreach ($recent_payments as $payment): ?>
                                         <tr class="hover:bg-green-100">
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                <?php echo htmlspecialchars($payment['full_name'] ?? ''); ?>
+                                                <a href="user_dashboard.php?user_id=<?php echo htmlspecialchars($payment['member_id'] ?? ''); ?>" class="text-blue-600 hover:text-blue-800">
+                                                    <?php echo htmlspecialchars($payment['full_name'] ?? '') . ' (' . htmlspecialchars($payment['member_id'] ?? '') . ')'; ?>
+                                                </a>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 RM <?php echo number_format($payment['amount'] ?? 0, 2); ?>
